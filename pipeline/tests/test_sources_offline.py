@@ -18,7 +18,8 @@ def _grib(values: np.ndarray, bitmap: np.ndarray | None = None) -> bytes:
     h = eccodes.codes_grib_new_from_samples("regular_ll_sfc_grib2")
     try:
         for k, v in {
-            "Ni": NI, "Nj": NJ,
+            "Ni": NI,
+            "Nj": NJ,
             "latitudeOfFirstGridPointInDegrees": 90.0,
             "longitudeOfFirstGridPointInDegrees": 180.0,
             "latitudeOfLastGridPointInDegrees": -90.0,
@@ -63,9 +64,14 @@ def test_ecmwf_index_and_steps():
 
 def test_rotated_pole_grid_regrid_matches_projection():
     # WW3 4 km grid mapping (CF attributes as served)
-    crs = cf_crs({"grid_mapping_name": "rotated_latitude_longitude",
-                  "grid_north_pole_longitude": 140.0, "grid_north_pole_latitude": 22.0,
-                  "earth_radius": 6371000.0})
+    crs = cf_crs(
+        {
+            "grid_mapping_name": "rotated_latitude_longitude",
+            "grid_north_pole_longitude": 140.0,
+            "grid_north_pole_latitude": 22.0,
+            "earth_radius": 6371000.0,
+        }
+    )
     g = RegularGrid(crs.to_wkt(), 5.53, 0.04, 624, -14.35, 0.04, 1026, 4400.0)
     lon2d, lat2d = g.lonlat()
     # Frøya offshore cell from the spike: j=450, i=340 -> 63.9034N 8.0290E
@@ -76,10 +82,16 @@ def test_rotated_pole_grid_regrid_matches_projection():
 
 
 def test_norkyst_polar_stereographic_on_wgs84():
-    attrs = {"grid_mapping_name": "polar_stereographic",
-             "straight_vertical_longitude_from_pole": 70.0, "latitude_of_projection_origin": 90.0,
-             "standard_parallel": 60.0, "false_easting": 3369600.0, "false_northing": 1844800.0,
-             "semi_major_axis": 6378137.0, "semi_minor_axis": 6356752.3142}
+    attrs = {
+        "grid_mapping_name": "polar_stereographic",
+        "straight_vertical_longitude_from_pole": 70.0,
+        "latitude_of_projection_origin": 90.0,
+        "standard_parallel": 60.0,
+        "false_easting": 3369600.0,
+        "false_northing": 1844800.0,
+        "semi_major_axis": 6378137.0,
+        "semi_minor_axis": 6356752.3142,
+    }
     crs = cf_crs(attrs)
     # Frøya cell from the spike: Y=657, X=1149 -> 63.7476N 8.2963E
     to_ll = Transformer.from_crs(crs, CRS.from_epsg(4326), always_xy=True)
@@ -89,8 +101,11 @@ def test_norkyst_polar_stereographic_on_wgs84():
 
 def test_wave_directions_interpolate_across_north():
     p = products.WAVES
-    f = {"wave_height": np.array([[1.0, 3.0]]), "wave_period": np.array([[8.0, 10.0]]),
-         "wave_from_direction": np.array([[350.0, 10.0]])}
+    f = {
+        "wave_height": np.array([[1.0, 3.0]]),
+        "wave_period": np.array([[8.0, 10.0]]),
+        "wave_from_direction": np.array([[350.0, 10.0]]),
+    }
     inp = p.inputs(f)
     mid = {k: v.mean(axis=1) for k, v in inp.items()}  # halfway between the two cells
     hs, tp, d = p.outputs(mid)
