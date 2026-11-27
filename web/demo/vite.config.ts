@@ -57,6 +57,8 @@ function weatherData(): Plugin {
 }
 
 export default defineConfig({
+  // Sub-path when hosted (GitHub Pages: /weather/); data is read relative to it.
+  base: process.env.VITE_BASE || '/',
   plugins: [react(), weatherData()],
   // maplibre-gl 6 loads its worker via import.meta.url; pre-bundling would break that path.
   optimizeDeps: { exclude: ['maplibre-gl'] },

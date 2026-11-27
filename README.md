@@ -15,6 +15,8 @@ Two parts that meet through **files on disk**:
    arrows, particles) plus a thin React adapter for react-map-gl 8 and ready UI components.
    **`web/demo/`** is a Vite + React demo using it on OpenFreeMap light/dark basemaps.
 
+**Live demo (all of Norway, updated four times a day):** https://egeiran.github.io/weather/
+
 ![Wave height with threshold hatching and the point panel](docs/screenshots/point-panel-light.jpg)
 
 ## Quick start (macOS/Linux, from a clean clone)

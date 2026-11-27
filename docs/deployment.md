@@ -38,6 +38,22 @@ with `concurrencyPolicy: Forbid`) built from whatever base image the platform st
 Overlapping runs are also prevented by the pipeline itself (lock file in the state dir; a second
 run logs `pipeline.locked` and exits 0).
 
+## Public demo on GitHub Pages
+
+`.github/workflows/pages.yml` runs the pipeline for the `norway` area four times a day (04:10,
+10:10, 16:10, 22:10 UTC, just after new runs appear), on pushes to `main` that touch code, and on
+demand ("Run workflow"). It builds the demo with `VITE_BASE=/<repo>/`, copies the pipeline output
+to `weather-data/` next to it and publishes everything to https://egeiran.github.io/weather/.
+
+- The pipeline's `data/` (output + state) is kept in the Actions cache between runs, so each run
+  only fetches model runs it has not seen (a run with nothing new is ~5 s of pipeline work).
+  If the cache is evicted, the next run simply fetches everything again (~1.5 GB).
+- Retention 1 keeps the site at roughly 250–300 MB and ~20k files (GitHub Pages limit: 1 GB).
+- The site is public and unauthenticated (open MET/ECMWF data, no secrets). The demo still sends
+  its demo bearer token, which static hosting ignores.
+- Turned on with `gh api -X POST repos/egeiran/weather/pages -f build_type=workflow`
+  (Settings → Pages → Source: GitHub Actions).
+
 ## Configuration (environment)
 
 | variable | default | notes |

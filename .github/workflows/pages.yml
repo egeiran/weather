@@ -1,0 +1,101 @@
+# Public demo on GitHub Pages: runs the pipeline for Norway, builds the demo and publishes both as
+# static files. The pipeline's output and state are kept in the Actions cache between runs, so a
+# run only fetches model runs it has not seen yet (a run with nothing new is a cheap no-op).
+name: Demo on GitHub Pages
+
+on:
+  schedule:
+    # Just after new runs appear: MEPS (+2.5 h), WW3 00/12Z (+3.5 h), NorKyst 00Z (~06:40),
+    # ECMWF 00/12Z (~07:34 / 19:34 UTC).
+    - cron: '10 4,10,16,22 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - 'pipeline/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/pages.yml'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      WEATHER_LAYERS_AREA: norway
+      WEATHER_LAYERS_OUTPUT_DIR: data/out
+      WEATHER_LAYERS_STATE_DIR: data/state
+      WEATHER_LAYERS_CACHE: '0'
+      WEATHER_LAYERS_RETENTION: '1'
+      WEATHER_LAYERS_USER_AGENT: 'weather-layers/0.1 (+https://github.com/egeiran/weather; GitHub Actions demo)'
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Restore pipeline output and state
+        uses: actions/cache/restore@v6
+        with:
+          path: data
+          key: weather-data-${{ github.run_id }}
+          restore-keys: weather-data-
+
+      - name: Install pipeline
+        run: uv sync --project pipeline
+
+      - name: Run pipeline (only new model runs are fetched)
+        run: uv run --project pipeline weather-layers run
+
+      - name: Save pipeline output and state
+        if: always()
+        uses: actions/cache/save@v6
+        with:
+          path: data
+          key: weather-data-${{ github.run_id }}
+
+      - name: Validate manifest
+        run: |
+          uv run --project pipeline weather-layers validate
+          uv run --project pipeline weather-layers status
+
+      - name: Build demo
+        run: |
+          npm ci
+          npm run build -w web/demo
+        env:
+          VITE_BASE: /${{ github.event.repository.name }}/
+
+      - name: Add weather data to the site
+        run: |
+          cp -R data/out web/demo/dist/weather-data
+          du -sh web/demo/dist
+          find web/demo/dist -type f | wc -l
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: web/demo/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

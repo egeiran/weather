@@ -114,6 +114,11 @@ export function WeatherOverlayForFleet({ time, layer, visible }: { time: Date; l
 - **Coastline:** a thin coastline is drawn above the weather field from the basemap's vector
   `water` layer (OpenMapTiles schema). Pass `coastline={{ source, sourceLayer }}` for another
   basemap or `coastline={false}` to turn it off.
+- **MapLibre worker when bundling:** MapLibre 6 locates its worker next to its own module, which
+  breaks once a bundler moves it; point it at the emitted file once at start-up, e.g. with Vite
+  `setWorkerUrl(new URL('maplibre-gl/dist/maplibre-gl-worker.mjs', import.meta.url).href)` or
+  `import url from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'` (Fleet Tracker already runs MapLibre 6,
+  so it has likely solved this).
 - **Layer order:** the weather layer is inserted below the first symbol layer of the basemap
   (labels stay on top). Add the host's vessel/site layers after it, or pass `beforeId`.
 - **Style switches:** the layer re-attaches itself on `style.load` (light/dark basemap swaps).
