@@ -25,7 +25,10 @@ data/         (gitignored) out/ = published files, state/ = pipeline state, cach
 - Dev (demo + data): `make dev` → http://localhost:5173
 - Tests: `make test` (pytest + vitest); lint: `make lint` (ruff + eslint + prettier); `make typecheck`
 - Screenshots: `make screenshots` (Playwright; writes docs/screenshots/)
-- Live checks against MET: `uv run --project pipeline pytest -m live`; cross-check: `make crosscheck`
+- Live checks against MET: `uv run --project pipeline pytest -m live`; cross-check: `make crosscheck` (→ docs/crosscheck.md)
+- Performance budget: `node scripts/perf.mjs http://localhost:5173 dev "name|layer=wind&view=63.72,8.6,8.3"` (GPU via Metal on macOS)
+- Whole coast into a separate dir: `WEATHER_LAYERS_OUTPUT_DIR=data/coast/out WEATHER_LAYERS_STATE_DIR=data/coast/state make pipeline-coast`
+  (serve it with `WEATHER_LAYERS_OUTPUT_DIR=data/coast/out npx vite --port 5174 --bypass-lock` in web/demo)
 
 ## Hard rules
 
@@ -59,5 +62,7 @@ data/         (gitignored) out/ = published files, state/ = pipeline state, cach
 ## Conventions
 
 - Tiles: 256 px + 1 px buffer (258×258) RGB PNG, XYZ dirs per valid time. See `docs/contract.md`.
+- Sources: `meps` (MEPS 2.5 km), `wam` (= WW3 4 km; MyWaveWAM 4 km no longer exists), `norkyst` (NorKyst v3), `ecmwf` (0.25° open data).
+- Playwright screenshot paths must be anchored to the spec file (a relative path once wrote outside the repo).
 - Units on the wire = display units: m/s (wind, gust), m (waves), s (period), kn (current), °C.
 - Python: type hints, ruff (line 100). TS: strict, ESLint + Prettier, Vitest.

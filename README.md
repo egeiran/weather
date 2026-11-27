@@ -19,7 +19,7 @@ Two parts that meet through **files on disk**:
 
 ## Quick start (macOS/Linux, from a clean clone)
 
-Requirements: [uv](https://docs.astral.sh/uv/) and Node.js ≥ 20 with npm. Nothing else (no GDAL,
+Requirements: [uv](https://docs.astral.sh/uv/) and Node.js ≥ 20.11 with npm. Nothing else (no GDAL,
 no Homebrew packages, no Docker).
 
 ```sh

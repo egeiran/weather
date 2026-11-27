@@ -13,8 +13,11 @@ export default defineConfig({
     viewport: { width: 1280, height: 800 },
     deviceScaleFactor: 1,
     launchOptions: {
-      // Software WebGL so the check runs headless on any machine.
-      args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
+      // Real GPU via Metal on macOS (realistic particles); software WebGL elsewhere.
+      args:
+        process.platform === 'darwin'
+          ? ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist']
+          : ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
     },
   },
   webServer: {
