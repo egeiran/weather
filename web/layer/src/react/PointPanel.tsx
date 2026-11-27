@@ -1,6 +1,6 @@
 import { rampColor, cssColor, getRamp } from '../core/ramps';
 import type { LayerId } from '../core/types';
-import { compass, formatShortTime, formatTime, formatValue } from '../core/units';
+import { compass, formatAxisTime, formatShortTime, formatTime, formatValue } from '../core/units';
 import type { PointForecast, WeatherState } from '../core/WeatherLayers';
 import { SeriesChart } from './Chart';
 import { useWeatherI18n } from './i18n';
@@ -150,7 +150,7 @@ export function PointPanel(props: {
             threshold={threshold}
             now={props.time}
             color={lineColor}
-            labelFormatter={(d) => formatShortTime(d, intl, timeZone)}
+            labelFormatter={(d) => formatAxisTime(d, intl, timeZone)}
             valueFormatter={(v) => fmtNum(v, unit === 'kn' || unit === 'm' ? 1 : 0)}
             ariaLabel={t('point.chart', { layer: t(`layer.${layer}`) })}
           />

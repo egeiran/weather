@@ -78,3 +78,16 @@ export function formatShortTime(d: Date, locale: string, timeZone = DEFAULT_TIME
     timeZone,
   }).format(d);
 }
+
+/** Compact label for chart axes, e.g. "fre. 14" / "Fri 14". */
+export function formatAxisTime(d: Date, locale: string, timeZone = DEFAULT_TIME_ZONE): string {
+  const parts = new Intl.DateTimeFormat(locale, {
+    weekday: 'short',
+    hour: '2-digit',
+    hourCycle: 'h23',
+    timeZone,
+  }).formatToParts(d);
+  const wd = parts.find((p) => p.type === 'weekday')?.value ?? '';
+  const hr = parts.find((p) => p.type === 'hour')?.value ?? '';
+  return `${wd} ${hr}`;
+}
