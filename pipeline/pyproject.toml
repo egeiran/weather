@@ -12,6 +12,7 @@ dependencies = [
     "pillow>=11.0",
     "httpx>=0.28",
     "eccodes>=2.39",
+    "jsonschema>=4.23",
     "eccodeslib>=2.50; sys_platform != 'win32'",
 ]
 
@@ -38,7 +39,7 @@ select = ["E", "F", "W", "I", "B", "UP", "SIM", "NPY"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q"
+addopts = "-q -m \"not live\""
 markers = [
     "live: hits real MET/ECMWF servers (deselected by default; run with -m live)",
 ]

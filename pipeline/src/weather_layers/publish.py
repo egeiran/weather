@@ -142,17 +142,16 @@ def run_pipeline(settings: Settings, force: bool = False) -> dict:
             st = statuses.get(name, {})
             if st.get("status") == "error":
                 st["status"] = "stale"
-    prev_set = (
-        {
-            n: s.get("run_id")
-            for n, s in (previous or {}).get("sources", {}).items()
-            if "run_id" in s
-        }
-        if previous and previous.get("area", {}).get("name") == settings.area
-        else None
-    )
+    same_area = bool(previous) and previous.get("area", {}).get("name") == settings.area
+    prev_sources = (previous or {}).get("sources", {}) if same_area else {}
+    prev_set = {n: s.get("run_id") for n, s in prev_sources.items() if "run_id" in s}
     new_set = {n: m["run_id"] for n, m in runs.items()}
-    if prev_set == new_set and not force:
+    # Republish when the run set changes, or when a source's health changes (e.g. ok -> stale),
+    # so clients can show "source down"; otherwise a run with nothing new is a no-op.
+    prev_status = {n: s.get("status") for n, s in prev_sources.items()}
+    new_status = {n: statuses.get(n, {}).get("status") for n in settings.sources}
+    if same_area and prev_set == new_set and prev_status == new_status and not force:
+        storage.clean_staging()
         log(
             "publish.noop",
             runs=new_set,

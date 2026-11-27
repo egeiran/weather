@@ -66,12 +66,24 @@ LAYERS = {
     },
 }
 
-ATTRIBUTION = {
-    "meps": "MET Norway",
-    "wam": "MET Norway",
-    "norkyst": "MET Norway",
-    "ecmwf": "ECMWF",
+MET = {
+    "name": "MET Norway",
+    "text": "Based on data from MET Norway",
+    "url": "https://www.met.no/en/free-meteorological-data/Licensing-and-crediting",
+    "license": "NLOD 2.0 / CC BY 4.0",
 }
+ECMWF = {
+    "name": "ECMWF",
+    "text": (
+        "This service is based on data and products of the European Centre for Medium-Range "
+        "Weather Forecasts (ECMWF), modified (regridded and tiled). ECMWF does not accept any "
+        "liability whatsoever for any error or omission in the data, their availability, or for "
+        "any loss or damage arising from their use."
+    ),
+    "url": "https://www.ecmwf.int",
+    "license": "CC BY 4.0",
+}
+ATTRIBUTION = {"meps": MET, "wam": MET, "norkyst": MET, "ecmwf": ECMWF}
 
 
 def build_manifest(
@@ -136,7 +148,11 @@ def build_manifest(
         }
     for name, st in source_status.items():
         sources.setdefault(name, {"label": name.upper(), **st})
-    attributions = sorted({ATTRIBUTION[s] for s in runs})
+    attributions = []
+    for name in ("meps", "wam", "norkyst", "ecmwf"):
+        a = ATTRIBUTION[name]
+        if name in runs and a not in attributions:
+            attributions.append(a)
     return {
         "schema_version": SCHEMA_VERSION,
         "generated_at": iso(datetime.now(UTC)),
