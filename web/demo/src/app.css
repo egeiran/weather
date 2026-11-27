@@ -1,0 +1,128 @@
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+}
+.demo {
+  position: fixed;
+  inset: 0;
+}
+.demo-top-left {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: min(420px, calc(100vw - 20px));
+}
+.demo-buttons {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 6px;
+}
+.demo-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.demo-settings select {
+  font: inherit;
+  color: inherit;
+  background: var(--wl-bg);
+  border: 1px solid var(--wl-border);
+  border-radius: 4px;
+}
+.demo-top-right {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-end;
+  max-width: 360px;
+}
+.demo-point {
+  position: absolute;
+  right: 10px;
+  top: 150px;
+  max-height: calc(100vh - 290px);
+  overflow: auto;
+}
+.demo-bottom {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.demo-debug {
+  position: absolute;
+  left: 50%;
+  top: 10px;
+  transform: translateX(-50%);
+  font-variant-numeric: tabular-nums;
+}
+.demo-marker {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  background: #17212b;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.4);
+}
+.maplibregl-ctrl-attrib {
+  font-size: 11px;
+}
+
+@media (max-width: 600px) {
+  .demo-top-left {
+    right: 10px;
+    max-width: none;
+  }
+  .demo-top-left .wl-layer-buttons {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+  .demo-buttons {
+    display: none;
+  }
+  .demo-top-right {
+    top: auto;
+    bottom: 150px;
+    right: 10px;
+    left: 10px;
+    align-items: stretch;
+    max-width: none;
+  }
+  .demo-top-right .wl-status {
+    display: none;
+  }
+  .demo-point {
+    left: 10px;
+    right: 10px;
+    top: auto;
+    bottom: 150px;
+    max-height: 45vh;
+  }
+  .demo-point .wl-point {
+    width: auto;
+  }
+  .demo-bottom {
+    right: 10px;
+  }
+}
+/* keep map controls above the time panel */
+.demo .maplibregl-ctrl-bottom-right {
+  bottom: 118px;
+}
+@media (max-width: 600px) {
+  .demo .maplibregl-ctrl-bottom-right {
+    bottom: 300px;
+  }
+}

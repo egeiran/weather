@@ -1,0 +1,293 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Map, {
+  AttributionControl,
+  Marker,
+  NavigationControl,
+  type MapRef,
+} from 'react-map-gl/maplibre';
+import {
+  DEFAULT_THRESHOLDS,
+  RAMP_FAMILIES,
+  type LayerId,
+  type Locale,
+  type ParticlesSetting,
+  type PointForecast,
+  type RampFamily,
+  type Thresholds,
+  type ThresholdStyle,
+  type WeatherLayers,
+  type WeatherState,
+} from 'weather-layers';
+import {
+  Attribution,
+  LayerPicker,
+  Legend,
+  PointPanel,
+  StatusBar,
+  ThresholdControls,
+  TimeSlider,
+  WeatherI18nProvider,
+  WeatherOverlay,
+  useWeatherI18n,
+} from 'weather-layers/react';
+
+import { DATA_BASE_URL, STYLE_DARK, STYLE_LIGHT, authFetch } from './config';
+import { DebugOverlay } from './DebugOverlay';
+
+const params = new URLSearchParams(location.search);
+const HOUR = 3600_000;
+
+function initialTime(): Date {
+  const t = params.get('time');
+  if (t) {
+    const d = new Date(t);
+    if (!Number.isNaN(d.getTime())) return d;
+  }
+  return new Date(Math.floor(Date.now() / HOUR) * HOUR);
+}
+
+function parseParticles(): ParticlesSetting {
+  const p = params.get('particles');
+  return p === '1' ? true : p === '0' ? false : 'auto';
+}
+
+export function App() {
+  const [locale, setLocale] = useState<Locale>(params.get('lang') === 'en' ? 'en' : 'nb');
+  return (
+    <WeatherI18nProvider locale={locale}>
+      <Demo locale={locale} onLocale={setLocale} />
+    </WeatherI18nProvider>
+  );
+}
+
+function Demo(props: { locale: Locale; onLocale: (l: Locale) => void }) {
+  const { t } = useWeatherI18n();
+  const mapRef = useRef<MapRef>(null);
+  const [theme, setTheme] = useState<'light' | 'dark'>(
+    params.get('theme') === 'dark' ? 'dark' : 'light',
+  );
+  const [layer, setLayer] = useState<LayerId>((params.get('layer') as LayerId) ?? 'wind');
+  const [time, setTime] = useState<Date>(initialTime);
+  const [playing, setPlaying] = useState(false);
+  const [particles, setParticles] = useState<ParticlesSetting>(parseParticles);
+  const [arrows, setArrows] = useState(params.get('arrows') !== '0');
+  const [thresholds, setThresholds] = useState<Thresholds>(DEFAULT_THRESHOLDS);
+  const [thresholdsEnabled, setThresholdsEnabled] = useState(params.get('thresholds') !== '0');
+  const [thresholdStyle, setThresholdStyle] = useState<ThresholdStyle>(
+    (params.get('tstyle') as ThresholdStyle) ?? 'hatch',
+  );
+  const [rampFamily, setRampFamily] = useState<RampFamily>(
+    (params.get('ramp') as RampFamily) ?? 'calm',
+  );
+  const [state, setState] = useState<WeatherState | null>(null);
+  const [controller, setController] = useState<WeatherLayers | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(params.get('settings') === '1');
+  const [point, setPoint] = useState<{ lng: number; lat: number } | null>(null);
+  const [forecast, setForecast] = useState<PointForecast | null>(null);
+  const [pointLoading, setPointLoading] = useState(false);
+  const [pointError, setPointError] = useState(false);
+  const fitted = useRef(false);
+
+  // Fit the data area once the manifest is known (unless the URL pins a view).
+  useEffect(() => {
+    if (fitted.current || !state?.manifest || params.get('view')) return;
+    const b = state.manifest.area.bounds;
+    mapRef.current?.fitBounds(
+      [
+        [b[0], b[1]],
+        [b[2], b[3]],
+      ],
+      { padding: 40, duration: 0 },
+    );
+    fitted.current = true;
+  }, [state?.manifest]);
+
+  const query = useCallback(
+    async (lngLat: { lng: number; lat: number }) => {
+      if (!controller) return;
+      setPoint(lngLat);
+      setPointLoading(true);
+      setPointError(false);
+      try {
+        setForecast(await controller.queryPoint(lngLat));
+      } catch {
+        setPointError(true);
+        setForecast(null);
+      } finally {
+        setPointLoading(false);
+      }
+    },
+    [controller],
+  );
+
+  // ?panel=lat,lon opens the point panel (used by screenshots).
+  useEffect(() => {
+    const p = params.get('panel');
+    if (!p || !controller || !state?.manifest || point) return;
+    const [lat, lng] = p.split(',').map(Number);
+    // Deep link: fetch the point once data is ready (an external-system sync, not derived state).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (Number.isFinite(lat) && Number.isFinite(lng)) void query({ lng: lng!, lat: lat! });
+  }, [controller, state?.manifest, point, query]);
+
+  const view = params.get('view')?.split(',').map(Number);
+  const initialViewState = useMemo(
+    () =>
+      view && view.length === 3
+        ? { latitude: view[0]!, longitude: view[1]!, zoom: view[2]! }
+        : { latitude: 63.7, longitude: 8.75, zoom: 7 },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+  const attribution = (state?.manifest?.attribution ?? []).map((a) => a.name).join(', ');
+
+  return (
+    <div className="wl-root demo" data-theme={theme}>
+      <Map
+        ref={mapRef}
+        initialViewState={initialViewState}
+        mapStyle={theme === 'dark' ? STYLE_DARK : STYLE_LIGHT}
+        style={{ position: 'absolute', inset: 0 }}
+        attributionControl={false}
+        onClick={(e) => void query(e.lngLat)}
+        cursor="crosshair"
+      >
+        <WeatherOverlay
+          baseUrl={DATA_BASE_URL}
+          fetch={authFetch}
+          layer={layer}
+          time={time}
+          particles={particles}
+          arrows={arrows}
+          thresholds={thresholds}
+          thresholdsEnabled={thresholdsEnabled}
+          thresholdStyle={thresholdStyle}
+          rampFamily={rampFamily}
+          theme={theme}
+          onState={setState}
+          onReady={setController}
+        />
+        <NavigationControl position="bottom-right" showCompass={false} />
+        <AttributionControl
+          position="bottom-right"
+          compact
+          customAttribution={
+            attribution ? `${t('attribution.data', { sources: attribution })}` : undefined
+          }
+        />
+        {point && (
+          <Marker longitude={point.lng} latitude={point.lat}>
+            <div className="demo-marker" />
+          </Marker>
+        )}
+      </Map>
+
+      <div className="demo-top-left">
+        <LayerPicker
+          state={state}
+          layer={layer}
+          onLayer={setLayer}
+          particles={particles}
+          onParticles={setParticles}
+          arrows={arrows}
+          onArrows={setArrows}
+        />
+        <div className="wl-panel demo-buttons">
+          <button
+            type="button"
+            className="wl-text-button"
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+          >
+            {theme === 'dark' ? t('theme.light') : t('theme.dark')}
+          </button>
+          <button
+            type="button"
+            className="wl-text-button"
+            onClick={() => props.onLocale(props.locale === 'nb' ? 'en' : 'nb')}
+          >
+            {t('lang.switch')}
+          </button>
+          <button
+            type="button"
+            className="wl-text-button"
+            aria-expanded={settingsOpen}
+            onClick={() => setSettingsOpen(!settingsOpen)}
+          >
+            {t('panel.settings')}
+          </button>
+        </div>
+        {settingsOpen && (
+          <div className="demo-settings">
+            <ThresholdControls
+              thresholds={thresholds}
+              enabled={thresholdsEnabled}
+              onChange={setThresholds}
+              onEnabled={setThresholdsEnabled}
+            />
+            <div className="wl-panel">
+              <label className="wl-threshold-row">
+                <span>{t('ramp.family')}</span>
+                <select
+                  value={rampFamily}
+                  onChange={(e) => setRampFamily(e.target.value as RampFamily)}
+                >
+                  {RAMP_FAMILIES.map((f) => (
+                    <option key={f} value={f}>
+                      {t(`ramp.${f}`)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="wl-threshold-row">
+                <span>{t('thresholdStyle.title')}</span>
+                <select
+                  value={thresholdStyle}
+                  onChange={(e) => setThresholdStyle(e.target.value as ThresholdStyle)}
+                >
+                  {(['hatch', 'tint', 'contour'] as const).map((s) => (
+                    <option key={s} value={s}>
+                      {t(`thresholdStyle.${s}`)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="demo-top-right">
+        <Legend state={state} />
+        <StatusBar state={state} />
+      </div>
+
+      {point && (
+        <div className="demo-point">
+          <PointPanel
+            state={state}
+            forecast={forecast}
+            loading={pointLoading}
+            error={pointError}
+            time={state?.resolved?.time ?? time}
+            onClose={() => {
+              setPoint(null);
+              setForecast(null);
+            }}
+          />
+        </div>
+      )}
+
+      <div className="demo-bottom">
+        <TimeSlider
+          state={state}
+          time={time}
+          onTime={setTime}
+          playing={playing}
+          onPlaying={setPlaying}
+        />
+        <Attribution state={state} />
+      </div>
+      {params.get('debug') === '1' && <DebugOverlay state={state} />}
+    </div>
+  );
+}

@@ -24,8 +24,12 @@
     "react-map-gl": "^8.1.0"
   },
   "peerDependenciesMeta": {
-    "react": { "optional": true },
-    "react-map-gl": { "optional": true }
+    "react": {
+      "optional": true
+    },
+    "react-map-gl": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@types/react": "^19.3.0",
