@@ -114,6 +114,8 @@ export class ParticleSystem {
   private trails: [Target, Target] | null = null;
   private res = 0;
   private lastCamera = '';
+  /** True while the camera is moving: particles are hidden, then reseeded when it stops. */
+  private moving = false;
   private frame = 0;
 
   constructor(private gl: WebGL2RenderingContext) {
@@ -128,14 +130,29 @@ export class ParticleSystem {
     const res = Math.ceil(Math.sqrt(count));
     if (this.state && this.res === res) return;
     if (this.state) this.state.forEach((t) => deleteTarget(gl, t));
-    const data = new Uint8Array(res * res * 4);
-    for (let i = 0; i < data.length; i++) data[i] = Math.floor(Math.random() * 256);
-    const a = createTarget(gl, res, res, gl.NEAREST);
-    gl.bindTexture(gl.TEXTURE_2D, a.tex);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, res, res, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
-    const b = createTarget(gl, res, res, gl.NEAREST);
-    this.state = [a, b];
+    this.state = [createTarget(gl, res, res, gl.NEAREST), createTarget(gl, res, res, gl.NEAREST)];
     this.res = res;
+    this.reseed();
+  }
+
+  /** Scatter all particles uniformly over the screen again. */
+  private reseed() {
+    const gl = this.gl;
+    if (!this.state) return;
+    const data = new Uint8Array(this.res * this.res * 4);
+    for (let i = 0; i < data.length; i++) data[i] = Math.floor(Math.random() * 256);
+    gl.bindTexture(gl.TEXTURE_2D, this.state[0].tex);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      this.res,
+      this.res,
+      0,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      data,
+    );
   }
 
   private ensureTrails(w: number, h: number) {
@@ -185,8 +202,16 @@ export class ParticleSystem {
     this.ensureTrails(w, h);
     const camera = `${map.getCenter().toArray().join()}|${map.getZoom()}|${map.getBearing()}|${map.getPitch()}|${w}x${h}`;
     if (camera !== this.lastCamera) {
+      // Positions live in screen space, so after a pan/zoom they no longer match the map.
+      // Hide particles while the camera moves (like Windy) and start fresh when it stops.
       this.clearTrails();
       this.lastCamera = camera;
+      this.moving = true;
+      return;
+    }
+    if (this.moving) {
+      this.moving = false;
+      this.reseed();
     }
     gl.disable(gl.DEPTH_TEST);
     gl.disable(gl.STENCIL_TEST);
@@ -212,8 +237,8 @@ export class ParticleSystem {
     gl.uniform2f(up.uniforms.u_north!, -Math.sin(b) / aspect, Math.cos(b));
     gl.uniform1f(up.uniforms.u_speed!, 0.0016 * tuning.speed);
     gl.uniform1f(up.uniforms.u_seed!, Math.random() + 0.5);
-    gl.uniform1f(up.uniforms.u_dropRate!, 0.004);
-    gl.uniform1f(up.uniforms.u_dropBump!, 0.01);
+    gl.uniform1f(up.uniforms.u_dropRate!, 0.008);
+    gl.uniform1f(up.uniforms.u_dropBump!, 0.0);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     this.state = [next, cur];
 
