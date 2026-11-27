@@ -1,0 +1,30 @@
+# Pipeline output and caches (never commit data)
+/data/
+/.work/
+.cache/
+*.nc
+*.grib2
+*.grib
+*.pmtiles
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+
+# Node
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+playwright-report/
+test-results/
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
