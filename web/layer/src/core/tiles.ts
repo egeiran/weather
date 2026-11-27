@@ -110,3 +110,59 @@ export function parentTile(t: TileId): TileId | null {
   if (t.z === 0) return null;
   return { z: t.z - 1, x: t.x >> 1, y: t.y >> 1 };
 }
+
+export interface CoverTile {
+  /** Where to draw (extent on the map). */
+  tile: TileId;
+  /** Which tile image to use: the tile itself or its nearest available ancestor. */
+  source: TileId;
+  uvOffset: [number, number];
+  uvScale: number;
+}
+
+/**
+ * Tiles covering the view at zoom z. Pyramids can be sparse (e.g. a detail zoom that only
+ * exists where a high-resolution overlay has data): a missing tile is covered by the matching
+ * part of its nearest available ancestor.
+ */
+export function coverTiles(view: BBox, z: number, seg: Segment): CoverTile[] {
+  const b = seg.bounds;
+  const west = Math.max(view[0], b[0]);
+  const east = Math.min(view[2], b[2]);
+  const south = Math.max(view[1], b[1]);
+  const north = Math.min(view[3], b[3]);
+  if (east <= west || north <= south) return [];
+  const n = 2 ** z;
+  const x0 = Math.max(0, Math.floor(lonToMercX(west) * n));
+  const x1 = Math.min(n - 1, Math.floor(lonToMercX(east) * n - 1e-9));
+  const y0 = Math.max(0, Math.floor(latToMercY(north) * n));
+  const y1 = Math.min(n - 1, Math.floor(latToMercY(south) * n - 1e-9));
+  const has = (t: TileId) => {
+    const av = seg.availability[String(t.z)];
+    return av ? maskFor(av).has(t.x, t.y) : true;
+  };
+  const out: CoverTile[] = [];
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      const t = { z, x, y };
+      if (has(t)) {
+        out.push({ tile: t, source: t, uvOffset: [0, 0], uvScale: 1 });
+        continue;
+      }
+      for (let pz = z - 1; pz >= seg.minzoom; pz--) {
+        const k = 2 ** (z - pz);
+        const p = { z: pz, x: Math.floor(x / k), y: Math.floor(y / k) };
+        if (has(p)) {
+          out.push({
+            tile: t,
+            source: p,
+            uvOffset: [(x - p.x * k) / k, (y - p.y * k) / k],
+            uvScale: 1 / k,
+          });
+          break;
+        }
+      }
+    }
+  }
+  return out;
+}

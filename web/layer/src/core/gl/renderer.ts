@@ -10,7 +10,7 @@ import type {
 
 import { joinUrl } from '../manifest';
 import { rampTexels, type Ramp } from '../ramps';
-import { parentTile, tileExtent, tileUrl, tileZoomFor, visibleTiles, type TileId } from '../tiles';
+import { coverTiles, parentTile, tileExtent, tileUrl, tileZoomFor, type TileId } from '../tiles';
 import type { ResolvedTime } from '../time';
 import type { TileStore } from '../tileStore';
 import type { LayerId, LayerInfo, Segment } from '../types';
@@ -212,7 +212,7 @@ export class WeatherRenderer implements CustomLayerInterface {
     const seg = resolved.segment;
     const z = tileZoomFor(this.map.getZoom(), seg, scene.tileZoomOffset);
     const view = this.viewBounds();
-    const tiles = visibleTiles(view, z, seg);
+    const tiles = coverTiles(view, z, seg);
     const draws: Draw[] = [];
     const fallbacks: Draw[] = [];
     const seen = new Set<string>();
@@ -220,16 +220,17 @@ export class WeatherRenderer implements CustomLayerInterface {
     let complete = true;
     const urlOf = (r: ResolvedTime, t: TileId) =>
       joinUrl(scene.baseUrl, tileUrl(r.segment.tiles, r.timeKey, t));
-    for (const t of tiles) {
-      const url = urlOf(resolved, t);
+    for (const c of tiles) {
+      const t = c.tile;
+      const url = urlOf(resolved, c.source);
       wanted.add(url);
       const e = this.store.request(url, 0);
       if (e.state === 'ready' && e.texture) {
         draws.push({
           texture: e.texture,
           extent: tileExtent(t),
-          uvOffset: [0, 0],
-          uvScale: 1,
+          uvOffset: c.uvOffset,
+          uvScale: c.uvScale,
           segment: seg,
         });
         continue;
@@ -254,12 +255,13 @@ export class WeatherRenderer implements CustomLayerInterface {
     }
     // Prefetch the next step once the current one is complete (smooth playback).
     if (complete && scene.prefetch) {
-      for (const t of visibleTiles(
+      for (const c of coverTiles(
         view,
         tileZoomFor(this.map.getZoom(), scene.prefetch.segment, scene.tileZoomOffset),
         scene.prefetch.segment,
       )) {
-        const url = urlOf(scene.prefetch, t);
+        const url = urlOf(scene.prefetch, c.source);
+        if (wanted.has(url)) continue;
         wanted.add(url);
         this.store.request(url, 10);
       }

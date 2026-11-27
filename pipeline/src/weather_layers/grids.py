@@ -124,6 +124,7 @@ class Sampler:
     wy: np.ndarray
     inside: np.ndarray
     shape: tuple[int, ...]
+    edge: np.ndarray | None = None  # distance (cells) to the grid's outer border
 
     @classmethod
     def build(cls, grid: RegularGrid, lon: np.ndarray, lat: np.ndarray) -> Sampler:
@@ -136,7 +137,8 @@ class Sampler:
         j0 = np.clip(np.floor(fj).astype(np.int64), 0, max(grid.ny - 2, 0))
         wx = np.clip(fi - i0, 0.0, 1.0).astype(np.float32)
         wy = np.clip(fj - j0, 0.0, 1.0).astype(np.float32)
-        return cls(i0, j0, wx, wy, inside, np.shape(lon))
+        edge = np.minimum.reduce([fi, grid.nx - 1 - fi, fj, grid.ny - 1 - fj]).astype(np.float32)
+        return cls(i0, j0, wx, wy, inside, np.shape(lon), edge)
 
     def sample(self, field: np.ndarray, min_weight: float = 0.5) -> np.ndarray:
         """Sample field[..., ny, nx] -> [..., *shape]. NaN marks no data."""

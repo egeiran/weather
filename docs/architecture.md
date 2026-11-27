@@ -50,7 +50,7 @@
    area outline into the grid CRS). For polygon areas it fetches the window in a few row strips
    that only span the polygon's columns (decision 0010). Requests are index-sliced, ≤ 24 MB;
    CF packing/fill values are unpacked and vectors rotated.
-3. `build_run` plans the tiles per zoom (min…max zoom per source, block-averaged inputs where a
+3. `build_run` plans the tiles per zoom (plus detail zooms where overlays exist) (min…max zoom per source, block-averaged inputs where a
    pixel spans several native cells), precomputes sampling weights once, then for every step
    samples, encodes and writes PNGs in a thread pool. Tile availability is fixed by the first step
    (land masks are static). The same step is sampled on the series lattice into a memory-mapped

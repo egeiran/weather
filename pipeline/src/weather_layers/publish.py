@@ -16,9 +16,12 @@ from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
+import numpy as np
+
 from . import areas
-from .build import build_run
-from .config import Settings
+from .build import SeaMask, build_run
+from .config import ALL_SOURCES, Settings
+from .grids import RegularGrid
 from .http import HttpClient
 from .log import COUNTERS, log, step
 from .manifest import build_manifest
@@ -77,12 +80,26 @@ def process_source(
             return status
         with step("fetch+build", source=source.name, run=run.run_id, area=settings.area):
             subset = source.fetch(http, run, area)
-            build_run(source, run, subset, settings.area, area, storage, settings.state_dir)
+            mask = reference_sea_mask(storage, settings) if source.name == "ecmwf" else None
+            build_run(
+                source, run, subset, settings.area, area, storage, settings.state_dir, sea_mask=mask
+            )
         status.update(status="ok", latest_run=run.run_id)
     except Exception as exc:  # keep other sources going; the manifest keeps the old run
         log("source.error", level="error", source=source.name, error=f"{type(exc).__name__}: {exc}")
         status.update(status="error", message=f"{type(exc).__name__}: {exc}"[:300])
     return status
+
+
+def reference_sea_mask(storage: LocalStorage, settings: Settings) -> SeaMask | None:
+    """WW3's land/sea mask from its newest build for this area (coastline for ECMWF waves)."""
+    for run_id in built_runs(storage, "wam", settings.area):
+        f = settings.state_dir / "wam" / run_id / "seamask.npz"
+        if f.exists():
+            with np.load(f) as z:
+                g = json.loads(str(z["grid"]))
+                return SeaMask(RegularGrid(**g), z["sea"].astype(np.float32))
+    return None
 
 
 def apply_retention(
@@ -167,7 +184,18 @@ def _run_pipeline(settings: Settings, force: bool = False) -> dict:
 
     # Publish set: newest complete build per source for this area.
     runs: dict[str, dict] = {}
-    for name in settings.sources:
+    # Publish every source that has a build for this area; `sources` only limits what this run
+    # fetches (sources not fetched now keep their last status).
+    prev_sources_all = (previous or {}).get("sources", {})
+    for name in ALL_SOURCES:
+        if name not in statuses and name in prev_sources_all:
+            keep = {
+                k: v
+                for k, v in prev_sources_all[name].items()
+                if k in ("status", "message", "checked_at", "latest_run")
+            }
+            statuses[name] = keep
+    for name in ALL_SOURCES:
         ids = built_runs(storage, name, settings.area)
         if ids:
             meta = load_run_meta(storage, name, ids[0])
@@ -188,7 +216,8 @@ def _run_pipeline(settings: Settings, force: bool = False) -> dict:
     # Republish when the run set changes, or when a source's health changes (e.g. ok -> stale),
     # so clients can show "source down"; otherwise a run with nothing new is a no-op.
     prev_status = {n: s.get("status") for n, s in prev_sources.items()}
-    new_status = {n: statuses.get(n, {}).get("status") for n in settings.sources}
+    new_status = {n: statuses.get(n, {}).get("status") for n in runs}
+    prev_status = {n: s for n, s in prev_status.items() if n in runs}
     if same_area and prev_set == new_set and prev_status == new_status and not force:
         storage.clean_staging()
         log(

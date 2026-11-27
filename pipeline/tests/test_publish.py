@@ -181,3 +181,13 @@ def test_cache_auto_only_for_dev_and_pruned_by_age(tmp_path):
     os.utime(old, (_time.time() - 100 * 3600,) * 2)
     (tmp_path / "ab" / "new.bin").write_bytes(b"y")
     assert c.prune_cache(48) == 1 and not old.exists()
+
+
+def test_fetching_a_subset_of_sources_keeps_the_others_published(env):
+    settings, _ = env
+    publish.run_pipeline(settings)
+    import dataclasses as dc
+
+    m = publish.run_pipeline(dc.replace(settings, sources=("meps",)), force=True)
+    assert set(m["sources"]) >= {"meps", "norkyst"}
+    assert "current" in m["layers"]

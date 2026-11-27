@@ -76,3 +76,30 @@ describe('tiles', () => {
     expect(visibleTiles([20, 0, 30, 10], 5, seg)).toEqual([]);
   });
 });
+
+describe('sparse pyramids', () => {
+  test('missing detail tiles are covered by the matching part of their parent', async () => {
+    const { coverTiles } = await import('../src/core/tiles');
+    const seg = segment('wam', times('2026-11-27T06:00:00Z', 1, 2), 1);
+    seg.minzoom = 4;
+    seg.maxzoom = 6;
+    // z5 tile (16,7) exists; at z6 only its child (33,14) exists
+    const bits = (w: number, h: number, on: number[]) => {
+      const b = new Uint8Array(Math.ceil((w * h) / 8));
+      for (const i of on) b[i >> 3]! |= 1 << (i & 7);
+      return btoa(String.fromCharCode(...b));
+    };
+    seg.availability = {
+      '5': { x0: 16, y0: 7, width: 1, height: 1, count: 1, bits: bits(1, 1, [0]) },
+      '6': { x0: 32, y0: 14, width: 2, height: 2, count: 1, bits: bits(2, 2, [1]) },
+    };
+    seg.bounds = [0, 66.6, 11.2, 70.5];
+    const cover = coverTiles([0.1, 66.6, 11.1, 70.5], 6, seg);
+    const own = cover.find((c) => c.tile.x === 33 && c.tile.y === 14)!;
+    expect(own.source).toEqual({ z: 6, x: 33, y: 14 });
+    const borrowed = cover.find((c) => c.tile.x === 32 && c.tile.y === 15)!;
+    expect(borrowed.source).toEqual({ z: 5, x: 16, y: 7 });
+    expect(borrowed.uvOffset).toEqual([0, 0.5]);
+    expect(borrowed.uvScale).toBe(0.5);
+  });
+});

@@ -46,6 +46,10 @@ class Subset:
     times: list[datetime]
     steps: Iterator[tuple[int, Fields]]  # (time index, fields at that time on `grid`)
     notes: dict = field(default_factory=dict)
+    # Higher-resolution grids that replace the base where they have data (e.g. WAM 800 m).
+    overlays: list = field(default_factory=list)
+    # Extra zoom levels generated only where overlays exist.
+    detail_max_zoom: int | None = None
 
 
 class Source:

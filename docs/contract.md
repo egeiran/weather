@@ -75,6 +75,9 @@ Validate with `uv run --project pipeline weather-layers validate`.
   `YYYYMMDDTHHMMZ`), `{z}`, `{x}`, `{y}`. Skip tiles whose bit is 0 in `availability[z]`.
 - **Availability bitset:** base64; bit *i* (LSB first within each byte) is tile
   `(x0 + i mod width, y0 + floor(i / width))`. Missing bits = no tile (e.g. all land).
+- **Sparse pyramids:** zoom levels above a source's base resolution may exist only where a
+  high-resolution overlay has data (waves: z6 only around the 800 m grids). Where a tile is missing,
+  draw the matching part of its nearest available ancestor (`coverTiles` in `web/layer/src/core/tiles.ts`).
 
 ## Tiles
 

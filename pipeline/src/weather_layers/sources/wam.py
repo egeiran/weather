@@ -143,7 +143,18 @@ class Wam(Source):
                 for k in range(b_ - a + 1):
                     yield a + k, {f: arr[k] for f, arr in got.items()}
 
-        return Subset(grid, times, steps(), notes)
+        from .wam800 import OVERLAY_MAX_ZOOM, build_overlays
+
+        overlays = build_overlays(http, area, times, cache=self.cache)
+        notes["overlays"] = [o.name for o in overlays]
+        return Subset(
+            grid,
+            times,
+            steps(),
+            notes,
+            overlays=overlays,
+            detail_max_zoom=OVERLAY_MAX_ZOOM if overlays else None,
+        )
 
 
 def _ref(run_id: str):

@@ -67,9 +67,17 @@ api.met.no oceanforecast uses outside the 800 m coastal WAM domains. See decisio
 - **Domain:** covers the coast area except an inland corner (≈ 57.5–58°N, > 29°E).
 - **Payload:** dev ≈ 3 MB per run (6 variables); coast ≈ 57 MB per variable per run ≈ 340 MB per run.
 
-Not used: **MyWaveWAM 800 m** (five separate coastal grids, ~25% of the coast area, "to" directions,
-fill −9999999) — a possible later nearshore overlay. **MyWaveWAM 3 km** pan-Arctic (to +234 h) is
-what api.met.no uses after +66 h; ECMWF covers that range for us.
+**MyWaveWAM 800 m** is used as a nearshore **overlay** on WW3 (decision 0011): five coastal grids
+(`fou-hi/mywavewam800{f,n,m,v,s}_curr/MyWave_wam800_curr_c{0..4}WAVE{HH}.nc`, ring buffer per cycle
+hour, ~4–4.5 h lag; rotated lat/lon 0.008°; 73 hourly steps frt−6 h…+66 h; `forecast_reference_time`
+in days). We take `hs`, `tp` and `thq` (direction **towards**, converted to "from"); land is
+`−9999999` (_FillValue). Where a grid has data it replaces WW3 for total waves (height, period,
+direction), blended over ~5 km at the grid edge, and tiles get one extra zoom level (z6) there.
+It reaches into fjords and sounds WW3 4 km cannot resolve; it covers about a quarter of the coastal sea.
+
+**MyWaveWAM 3 km** pan-Arctic (to +234 h) is what api.met.no uses after +66 h; ECMWF covers that
+range for us. ECMWF's 0.25° wave field is extrapolated over its own blocky land mask and clipped to
+WW3's coastline, so the wave layer keeps the same coastline through the whole timeline.
 
 ## NorKyst v3 800 m (current, sea temperature)
 
