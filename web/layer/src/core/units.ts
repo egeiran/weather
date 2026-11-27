@@ -14,47 +14,14 @@ export function displayUnit(unit: string): string {
   return unit === 'degC' ? '°C' : unit === 'deg' ? '°' : unit;
 }
 
-const COMPASS_EN = [
-  'N',
-  'NNE',
-  'NE',
-  'ENE',
-  'E',
-  'ESE',
-  'SE',
-  'SSE',
-  'S',
-  'SSW',
-  'SW',
-  'WSW',
-  'W',
-  'WNW',
-  'NW',
-  'NNW',
-];
-const COMPASS_NB = [
-  'N',
-  'NNØ',
-  'NØ',
-  'ØNØ',
-  'Ø',
-  'ØSØ',
-  'SØ',
-  'SSØ',
-  'S',
-  'SSV',
-  'SV',
-  'VSV',
-  'V',
-  'VNV',
-  'NV',
-  'NNV',
-];
-
-export function compass(deg: number | null | undefined, locale: string): string {
-  if (deg === null || deg === undefined || !Number.isFinite(deg)) return '–';
-  const names = locale.startsWith('nb') || locale.startsWith('no') ? COMPASS_NB : COMPASS_EN;
-  return names[Math.round((((deg % 360) + 360) % 360) / 22.5) % 16]!;
+/**
+ * 16-point compass name of a bearing. `points` are the localised names, N first, clockwise
+ * (message key `compass.points`, comma separated).
+ */
+export function compass(deg: number | null | undefined, points: readonly string[]): string {
+  if (deg === null || deg === undefined || !Number.isFinite(deg) || points.length !== 16)
+    return '–';
+  return points[Math.round((((deg % 360) + 360) % 360) / 22.5) % 16]!;
 }
 
 export const DEFAULT_TIME_ZONE = 'Europe/Oslo';

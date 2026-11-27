@@ -110,7 +110,7 @@ export function TimeSlider(props: {
               style={{ left: pct(g.s), width: pct(min + (g.e - g.s)) }}
               title={t('segment.label', { label: g.label, step: g.step_hours ?? '' })}
             >
-              <span>{`${g.label} · ${g.step_hours ?? '–'} ${intl.startsWith('nb') ? 't' : 'h'}`}</span>
+              <span>{t('segment.short', { label: g.label, hours: g.step_hours ?? '–' })}</span>
             </div>
           ))}
           {layerEnd < max && (

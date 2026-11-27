@@ -52,6 +52,7 @@ export function PointPanel(props: {
       maximumFractionDigits: digits,
     }).format(v);
   const at = (name: string) => (f ? valueAt(f.times, f.values[name], props.time) : null);
+  const points = t('compass.points').split(',');
   const layer = props.state?.layer ?? 'wind';
   const chartVar = LAYER_VARIABLE[layer];
   const thrLayer =
@@ -71,7 +72,7 @@ export function PointPanel(props: {
           detail:
             at('wind_speed') !== null
               ? t('point.from', {
-                  dir: `${compass(at('wind_from_direction'), intl)} (${fmtNum(at('wind_from_direction') ?? 0, 0)}°)`,
+                  dir: `${compass(at('wind_from_direction'), points)} (${fmtNum(at('wind_from_direction') ?? 0, 0)}°)`,
                 })
               : undefined,
         },
@@ -81,7 +82,7 @@ export function PointPanel(props: {
           value: formatValue(at('wave_height'), 'm', intl),
           detail:
             at('wave_height') !== null
-              ? `${t('point.from', { dir: compass(at('wave_from_direction'), intl) })}, ${t('point.period', { value: formatValue(at('wave_period'), 's', intl) })}`
+              ? `${t('point.from', { dir: compass(at('wave_from_direction'), points) })}, ${t('point.period', { value: formatValue(at('wave_period'), 's', intl) })}`
               : undefined,
         },
         {
@@ -89,7 +90,7 @@ export function PointPanel(props: {
           value: formatValue(at('swell_height'), 'm', intl),
           detail:
             at('swell_height') !== null
-              ? `${t('point.from', { dir: compass(at('swell_from_direction'), intl) })}, ${t('point.period', { value: formatValue(at('swell_period'), 's', intl) })}`
+              ? `${t('point.from', { dir: compass(at('swell_from_direction'), points) })}, ${t('point.period', { value: formatValue(at('swell_period'), 's', intl) })}`
               : undefined,
         },
         {
@@ -98,7 +99,7 @@ export function PointPanel(props: {
           detail:
             at('current_speed') !== null
               ? t('point.towards', {
-                  dir: `${compass(at('current_to_direction'), intl)} (${fmtNum(at('current_to_direction') ?? 0, 0)}°)`,
+                  dir: `${compass(at('current_to_direction'), points)} (${fmtNum(at('current_to_direction') ?? 0, 0)}°)`,
                 })
               : undefined,
         },

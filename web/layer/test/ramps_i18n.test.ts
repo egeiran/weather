@@ -30,3 +30,13 @@ describe('ramps', () => {
     }
   }
 });
+
+test('compass names come from the messages', async () => {
+  const { compass } = await import('../src/core/units');
+  const nbPoints = (nb as Record<string, string>)['compass.points']!.split(',');
+  const enPoints = (en as Record<string, string>)['compass.points']!.split(',');
+  expect(compass(225, nbPoints)).toBe('SV');
+  expect(compass(225, enPoints)).toBe('SW');
+  expect(compass(359, enPoints)).toBe('N');
+  expect(compass(null, enPoints)).toBe('–');
+});

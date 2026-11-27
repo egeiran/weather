@@ -79,5 +79,7 @@
   "thresholdStyle.title": "Marking",
   "thresholdStyle.hatch": "Hatching",
   "thresholdStyle.tint": "Tint",
-  "thresholdStyle.contour": "Contour only"
+  "thresholdStyle.contour": "Contour only",
+  "segment.short": "{label} · {hours} h",
+  "compass.points": "N,NNE,NE,ENE,E,ESE,SE,SSE,S,SSW,SW,WSW,W,WNW,NW,NNW"
 }
