@@ -16,7 +16,8 @@ series/<series_id>/series.json                          series metadata (pipelin
 - `<source>`: `meps`, `wam` (WW3 4 km), `norkyst`, `ecmwf`. `<run_id>`: `YYYYMMDDTHHZ`.
 - `<product>`: `wind`, `waves`, `swell`, `current`. `<time>`: valid time `YYYYMMDDTHHMMZ` (UTC).
 - Paths under `runs/` and `series/` are **immutable**: a published URL never changes content.
-  Serve them with `Cache-Control: public, max-age=31536000, immutable`; serve `manifest.json`
+  Serve them with `Cache-Control: private, max-age=31536000, immutable` (`private`: they sit
+  behind auth, so shared caches must not keep them); serve `manifest.json`
   with `no-cache` (or a short max-age) so clients see new runs.
 - Readers must only follow URLs found in the current manifest. Directories without a manifest
   reference may be half-written (staging) or about to be deleted (retention).
@@ -33,7 +34,7 @@ Validate with `uv run --project pipeline weather-layers validate`.
 | `area` | `{name, bounds:[w,s,e,n]}` of the pipeline run |
 | `tile` | `{size: 256, buffer: 1, format: "png", encoding: "rgb8-linear", nodata: 255, scheme: "xyz", time_format}` |
 | `attribution[]` | `{name, text, url, license}` to show in the UI (MET Norway, ECMWF) |
-| `sources{}` | per source: `label`, `model`, `run_id`, `reference_time`, `start`, `end`, `status` (`ok`/`stale`/`error`/`missing`/`pending`), `message`, `checked_at` |
+| `sources{}` | per source: `label`, `model`, `run_id`, `reference_time`, `start`, `end`, `status`, `message`, `checked_at`. Status: `ok` newest run published; `pending` no newer complete run on the server yet (previous run shown, normal); `stale` the last fetch failed, previous run shown; `missing`/`error` nothing published for this source |
 | `layers{}` | per UI layer (`wind`, `gust`, `wave_height`, `wave_period`, `swell`, `current`), see below |
 | `series` | point-series description or `null` |
 
@@ -54,7 +55,7 @@ Validate with `uv run --project pipeline weather-layers validate`.
       "start": "…", "end": "…", "step_hours": 1,
       "times": ["2026-11-27T06:00:00Z", …],   // valid times with tiles
       "tiles": "runs/wam/20261127T06Z/waves/{time}/{z}/{x}/{y}.png",
-      "minzoom": 2, "maxzoom": 5,              // tiles exist only in this zoom range; over-zoom above
+      "minzoom": 1, "maxzoom": 4,              // tiles exist only in this zoom range; over-zoom above
       "bounds": [w, s, e, n],                  // data rectangle
       "availability": { "5": {x0, y0, width, height, count, bits} , … },
       "channels": [ {name, unit, scale, offset, nodata, min, max, wrap?}, ×3 ],  // R, G, B
@@ -84,7 +85,8 @@ Validate with `uv run --project pipeline weather-layers validate`.
   models, outside the area/domain). Channels with `wrap` (directions) are modulo `wrap`.
 - Decode without premultiplication or colour conversion (`createImageBitmap(blob,
   {premultiplyAlpha: 'none', colorSpaceConversion: 'none'})`), sample with NEAREST and interpolate
-  manually: drop no-data taps, renormalise; a sample is valid when ≥ 50 % of its weight is valid.
+  manually: drop no-data taps, renormalise; a sample is valid when ≥ 50 % of its weight is valid
+  (the reference colour field fades out between 40 % and 60 % for a soft coastline).
   Interpolate directions as vectors.
 
 | product | R | G | B |
@@ -128,7 +130,8 @@ period 0.05 s, current 0.02 kn, direction 0.71°, temperature 0.075 °C.
   `[var][row][col][time]`. Code 255 = no data (e.g. a variable outside its segments' times).
   If a proxy already removed the gzip layer, the bytes start with `WLS1` directly.
 - Values: same encodings as the tile channels. Cell values are bilinear at the cell centre; for
-  ocean variables a coastal cell borrows the nearest sea value.
+  ocean variables the coastline rule is relaxed (any of the 2×2 surrounding native cells with data
+  counts), so a coastal cell borrows the adjacent sea value up to about one native cell inland.
 
 ## Versioning rules
 

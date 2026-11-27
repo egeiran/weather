@@ -21,7 +21,7 @@ Examples (pick what the platform offers):
 
 ```cron
 # crontab: minute 10 of every hour
-10 * * * * cd /opt/weather-layers && WEATHER_LAYERS_AREA=coast /usr/local/bin/uv run --project pipeline weather-layers run >> /var/log/weather-layers.jsonl 2>&1
+10 * * * * cd /opt/weather-layers && WEATHER_LAYERS_AREA=coast WEATHER_LAYERS_CACHE=0 /usr/local/bin/uv run --project pipeline weather-layers run >> /var/log/weather-layers.jsonl 2>&1
 ```
 
 ```ini
@@ -45,7 +45,8 @@ run logs `pipeline.locked` and exits 0).
 | `WEATHER_LAYERS_OUTPUT_DIR` | `data/out` | public files; serve this directory |
 | `WEATHER_LAYERS_STATE_DIR` | `data/state` | private per-run series state (+ lock file); not served |
 | `WEATHER_LAYERS_CACHE_DIR` | `data/cache` | raw download cache |
-| `WEATHER_LAYERS_CACHE` | `1` | set `0` in production (each run is fetched once anyway) |
+| `WEATHER_LAYERS_CACHE` | `auto` | `auto` = on for the dev area only; production fetches each run once, so leave it off |
+| `WEATHER_LAYERS_CACHE_MAX_AGE_H` | `48` | cached raw responses older than this are deleted at the start of each run |
 | `WEATHER_LAYERS_USER_AGENT` | `weather-layers/<ver> (+https://github.com/egeiran/weather)` | **set to the operator's app name + contact** (MET terms) |
 | `WEATHER_LAYERS_AREA` | `dev` | `coast` in production, or `w,s,e,n` |
 | `WEATHER_LAYERS_SOURCES` | `meps,wam,norkyst,ecmwf` | |

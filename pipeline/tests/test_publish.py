@@ -146,3 +146,38 @@ def test_overlapping_run_is_skipped(env):
         assert publish.run_pipeline(settings) == {}
     assert sources["meps"].fetches == 0
     assert publish.run_pipeline(settings)["sources"]["meps"]["run_id"] == "20261127T06Z"
+
+
+def test_no_newer_complete_run_reports_pending_not_missing(env):
+    settings, sources = env
+    publish.run_pipeline(settings)
+    sources["meps"].latest_complete_run = lambda http, is_built=None: None
+    m = publish.run_pipeline(settings)
+    assert m["sources"]["meps"]["status"] == "pending"
+    assert m["sources"]["meps"]["run_id"] == "20261127T06Z"
+    validate_manifest(m)
+
+
+def test_forced_rebuild_gets_a_new_series_id(env):
+    settings, _ = env
+    first = publish.run_pipeline(settings)["series"]["id"]
+    second = publish.run_pipeline(settings, force=True)["series"]["id"]
+    assert first != second
+
+
+def test_cache_auto_only_for_dev_and_pruned_by_age(tmp_path):
+    import os
+    import time as _time
+
+    from weather_layers.http import HttpClient
+
+    assert Settings(area="dev").cache_enabled is True
+    assert Settings(area="coast").cache_enabled is False
+    assert Settings(area="coast", use_cache=True).cache_enabled is True
+    c = HttpClient("t", cache_dir=tmp_path)
+    old = tmp_path / "ab" / "old.bin"
+    old.parent.mkdir()
+    old.write_bytes(b"x")
+    os.utime(old, (_time.time() - 100 * 3600,) * 2)
+    (tmp_path / "ab" / "new.bin").write_bytes(b"y")
+    assert c.prune_cache(48) == 1 and not old.exists()

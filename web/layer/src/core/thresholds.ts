@@ -36,18 +36,32 @@ export function firstExceedance(
   from: Date,
 ): { first: Date | null; already: boolean; dataEnd: Date | null } {
   const t0 = from.getTime();
-  // The step in force at `from` is the last valid time <= from (or the first one).
-  let start = 0;
-  for (let i = 0; i < times.length; i++) if (times[i]!.getTime() <= t0) start = i;
-  let first: Date | null = null;
+  // The step in force at `from` is this variable's nearest valid time (the same step the map
+  // shows): the series axis is a union of all variables' times, so neighbours may be missing.
+  let start = -1;
+  let best = Infinity;
   let dataEnd: Date | null = null;
   for (let i = 0; i < times.length; i++) {
     const v = values[i];
     if (v === null || v === undefined) continue;
     dataEnd = times[i]!;
-    if (i >= start && first === null && v > threshold) first = times[i]!;
+    const d = Math.abs(times[i]!.getTime() - t0);
+    if (d < best) {
+      best = d;
+      start = i;
+    }
   }
-  const already = first !== null && first.getTime() <= t0;
+  let first: Date | null = null;
+  if (start >= 0) {
+    for (let i = start; i < times.length; i++) {
+      const v = values[i];
+      if (v !== null && v !== undefined && v > threshold) {
+        first = times[i]!;
+        break;
+      }
+    }
+  }
+  const already = start >= 0 && first !== null && first.getTime() === times[start]!.getTime();
   return { first: already ? from : first, already, dataEnd };
 }
 

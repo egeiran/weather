@@ -150,7 +150,7 @@ def _run_pipeline(settings: Settings, force: bool = False) -> dict:
     area = areas.get(settings.area)
     previous = current_manifest(storage)
     statuses: dict[str, dict] = {}
-    cache_dir = settings.cache_dir if settings.use_cache else None
+    cache_dir = settings.cache_dir if settings.cache_enabled else None
     with HttpClient(
         settings.user_agent,
         concurrency=settings.concurrency,
@@ -158,8 +158,11 @@ def _run_pipeline(settings: Settings, force: bool = False) -> dict:
         max_retries=settings.max_retries,
         cache_dir=cache_dir,
     ) as http:
+        pruned = http.prune_cache(settings.cache_max_age_h)
+        if pruned:
+            log("cache.pruned", files=pruned, max_age_h=settings.cache_max_age_h)
         for name in settings.sources:
-            source = get_source(name, cache=settings.use_cache)
+            source = get_source(name, cache=settings.cache_enabled)
             statuses[name] = process_source(source, http, settings, storage, force)
 
     # Publish set: newest complete build per source for this area.
@@ -173,6 +176,11 @@ def _run_pipeline(settings: Settings, force: bool = False) -> dict:
             st = statuses.get(name, {})
             if st.get("status") == "error":
                 st["status"] = "stale"
+            elif st.get("status") == "missing":
+                # No newer complete run on the server yet (e.g. NorKyst being appended 04:30-06:40
+                # UTC): the published run is still the newest one, nothing is wrong.
+                st["status"] = "pending"
+                st["message"] = f"no newer complete run yet; showing {meta['run_id']}"
     same_area = bool(previous) and previous.get("area", {}).get("name") == settings.area
     prev_sources = (previous or {}).get("sources", {}) if same_area else {}
     prev_set = {n: s.get("run_id") for n, s in prev_sources.items() if "run_id" in s}

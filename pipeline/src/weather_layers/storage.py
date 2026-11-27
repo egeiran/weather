@@ -91,7 +91,13 @@ class LocalStorage:
         src, dst = self.path(staging), self.path(final)
         dst.parent.mkdir(parents=True, exist_ok=True)
         if dst.exists():
-            shutil.rmtree(dst)
+            # Only reachable with `run --force` (development): swap with two renames so the gap
+            # is microseconds, then delete the old copy. Normal runs never replace a final dir.
+            trash = dst.with_name(f"{self.STAGING_MARK}old-{dst.name}-{uuid.uuid4().hex[:8]}")
+            os.replace(dst, trash)
+            os.replace(src, dst)
+            shutil.rmtree(trash, ignore_errors=True)
+            return
         os.replace(src, dst)  # atomic rename on the same filesystem
 
     def clean_staging(self, prefix: str = "") -> int:

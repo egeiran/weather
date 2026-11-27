@@ -11,24 +11,53 @@
 | 6 | Particles | done |
 | 7 | Click for values + thresholds | done |
 | 8 | Hardening, cross-check, full-coast run | done |
-| 9 | Docs + independent review | pending |
+| 9 | Docs + independent review | done |
 
-## Results so far
+## Results
 
-- Cross-check (docs/crosscheck.md): tiles at MET's grid point agree within wind 0.05 m/s / 0.9°,
-  current 0.05 kn / 2.9°, sea temperature 0.04 °C; waves 0.14 m / 10° (WW3 vs MET's WAM 800 m).
-- Performance (docs/performance.md): first view ≤ 398 KB, step change ≤ 177 KB, click = 1 request,
-  60 fps with particles.
-- Full coast: 4 min 42 s, 1.87 GB downloaded, 268 MB public / 371 MB state, 17,631 files; no-op 4.3 s.
+- Cross-check (docs/crosscheck.md), tiles at MET's grid point: wind 0.05 m/s / 0.7°, gust 0.06 m/s,
+  current 0.04 kn / 3.0°, sea temperature 0.04 °C (mean abs diff); waves 0.14 m / 11° (WW3 4 km vs
+  MET's WAM 800 m near the coast). Click series agree within 0.2–0.25 (lattice resolution).
+- Performance (docs/performance.md): first view ≤ 398 KB, step change ≤ 177 KB, click = 1 request
+  (7–11 KB), 60 fps with particles (Apple M4, 1440×900 @2x).
+- Full coast: 4 min 42 s, 1.87 GB downloaded, 268 MB public + 371 MB state, 17,631 files;
+  no-op rerun 4.3 s / 4 requests / 12 KB.
+- Clean clone: `make setup && make pipeline && make dev` verified.
 
-## Next
+## Independent review (cold read by a subagent) — all findings fixed
 
-- M9: independent cold review by a subagent, fix findings, final report.
-- Owner's pick of look options (artifact "Værlagets utseende") — defaults: calm, hatching, arrows + particles 'auto'.
+1. Renderer kept deleted GL objects after a style reload/context restore → references cleared in `onRemove`.
+2. One-hour hole at the regional → ECMWF boundary → `resolveTime` picks the nearer boundary time.
+3. First exceedance skipped the variable's own step on the union axis → per-variable step in force.
+4. Threshold marking used ≥ and filled flat plateaus → strict >, no contour where `fwidth` ≈ 0.
+5. `addTo` could miss attaching while tiles stream → attach retried on `styledata`/`style.load`.
+6. Failed tiles never retried → exponential backoff (2–60 s), error count = tiles currently failing.
+7. Raw cache grew unbounded in production → cache `auto` (dev only) + age pruning (48 h).
+8. Fallback tiles duplicated/over-drawn while loading → computed in tile space, de-duplicated, drawn first.
+9. NorKyst showed "unavailable" every morning → status `pending` while the previous run is still newest.
+10. `make test` ran the live MET test → runs from `pipeline/` with its pytest config.
+11. Unknown layer ids crashed the client → ignored; schema allows new ids (minor versions).
+12. Tile buffer and direction offset hard-coded → schema `buffer: 1`, shader applies `offset`.
+13. `--force` replaced runs non-atomically and reused stale series → swap with two renames, `build_id` in series id.
+14. `public` caching advised for authenticated files → `private` in contract and demo.
+15. Empty output-dir env served the whole checkout in the demo → `||` defaults + path allowlist.
+16. Controller could not be re-added after `remove()`; media listener leaked → fixed, `destroy()` added.
+17. Doc nits (WW3 zooms, coastline rule wording, `pending` status) → corrected.
 
-## Open issues
+Regression tests were added for 2, 3, 4, 6, 9, 11 and 13.
 
-- Row-band fetching for rotated grids (WW3, NorKyst) not implemented (≈ −⅓ download).
+## Next steps
+
+- Owner's pick of look options (artifact "Værlagets utseende"); defaults now: calm ramp, hatching,
+  arrows + particles 'auto'. Switching is a prop/option change, no new data.
+- Wire into Fleet Tracker (docs/host-integration.md): serve `data/out` behind the API's auth,
+  add `weather-layers` as a workspace package, mount `<WeatherOverlay>`, drive `time` from the host timeline.
+- Run the pipeline hourly on a host with ~2 GB RAM / 5 GB disk; set `WEATHER_LAYERS_USER_AGENT`.
+- Optional: row-band fetching for rotated grids (≈ −⅓ download), blob-storage `Storage`, globe support.
+
+## Known gaps
+
 - Swell has no data after +66 h (ECMWF open data has no partitions); currents end at +120 h.
-- Headless screenshots use SwiftShader (software WebGL): particle trails look shorter than on real GPUs.
+- Waves near the coast differ from api.met.no (they use WAM 800 m; we use WW3 4 km everywhere).
+- Point series use a ~2.8 km lattice: values can differ from the colour field in strong gradients.
 - Globe projection not supported by the custom layer (mercator only).

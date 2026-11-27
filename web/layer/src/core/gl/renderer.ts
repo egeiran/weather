@@ -126,6 +126,15 @@ export class WeatherRenderer implements CustomLayerInterface {
     deleteTarget(gl, this.vectorTarget);
     this.particles?.destroy();
     this.store.destroy((t) => gl.deleteTexture(t));
+    // Drop every reference: the same instance is re-added after a style reload or context restore.
+    this.fieldProg = this.vectorProg = this.arrowProg = null;
+    this.quadBuf = this.glyphBuf = this.anchorBuf = null;
+    this.rampTex = null;
+    this.rampKey = '';
+    this.vectorTarget = null;
+    this.particles = null;
+    this.anchorCount = 0;
+    this.draws = [];
     this.map = null;
     this.gl = null;
   }
@@ -191,6 +200,8 @@ export class WeatherRenderer implements CustomLayerInterface {
     const view = this.viewBounds();
     const tiles = visibleTiles(view, z, seg);
     const draws: Draw[] = [];
+    const fallbacks: Draw[] = [];
+    const seen = new Set<string>();
     const wanted = new Set<string>();
     let complete = true;
     const urlOf = (r: ResolvedTime, t: TileId) =>
@@ -214,24 +225,16 @@ export class WeatherRenderer implements CustomLayerInterface {
       // Fallback 1: an ancestor tile of the same time that is already loaded.
       const anc = this.findAncestor(t, seg.minzoom, (p) => urlOf(resolved, p));
       if (anc) {
-        draws.push({ ...anc, segment: seg });
+        fallbacks.push({ ...anc, segment: seg });
         continue;
       }
       // Fallback 2: the previously shown time at the same position (avoids flicker).
       if (scene.fallback && scene.fallback.timeKey !== resolved.timeKey) {
-        const fseg = scene.fallback.segment;
-        const fz = tileZoomFor(this.map.getZoom(), fseg, scene.tileZoomOffset);
-        for (const ft of visibleTiles(tileBBox(t), fz, fseg)) {
-          const fe = this.store.get(urlOf(scene.fallback, ft));
-          if (fe?.state === 'ready' && fe.texture) {
-            draws.push({
-              texture: fe.texture,
-              extent: tileExtent(ft),
-              uvOffset: [0, 0],
-              uvScale: 1,
-              segment: fseg,
-            });
-          }
+        for (const fb of this.fallbackFor(t, scene.fallback, scene.tileZoomOffset, urlOf)) {
+          const key = `${fb.url}|${fb.extent.join()}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          fallbacks.push(fb.draw);
         }
       }
     }
@@ -250,8 +253,61 @@ export class WeatherRenderer implements CustomLayerInterface {
     this.store.cancelQueuedExcept(wanted);
     this.complete = complete;
     this.onFrame({ complete, tiles: tiles.length });
-    // Draw coarser (fallback) tiles first so sharper ones end up on top.
-    return draws.sort((a, b) => b.extent[2] - b.extent[0] - (a.extent[2] - a.extent[0]));
+    // Fallbacks first, so tiles of the current time always end up on top.
+    return [...fallbacks, ...draws];
+  }
+
+  /**
+   * Loaded tiles of another time covering exactly tile `t` (same zoom, an ancestor clipped to
+   * t's extent, or t's children), computed in tile space so nothing outside t is drawn.
+   */
+  private fallbackFor(
+    t: TileId,
+    other: ResolvedTime,
+    offset: number,
+    urlOf: (r: ResolvedTime, t: TileId) => string,
+  ): { url: string; extent: number[]; draw: Draw }[] {
+    const seg = other.segment;
+    const fz = tileZoomFor(this.map!.getZoom(), seg, offset);
+    const out: { url: string; extent: number[]; draw: Draw }[] = [];
+    if (fz <= t.z) {
+      const n = 2 ** (t.z - fz);
+      const p = { z: fz, x: Math.floor(t.x / n), y: Math.floor(t.y / n) };
+      const url = urlOf(other, p);
+      const e = this.store.get(url);
+      if (e?.state === 'ready' && e.texture) {
+        const extent = tileExtent(t);
+        out.push({
+          url,
+          extent,
+          draw: {
+            texture: e.texture,
+            extent,
+            uvOffset: [(t.x - p.x * n) / n, (t.y - p.y * n) / n],
+            uvScale: 1 / n,
+            segment: seg,
+          },
+        });
+      }
+      return out;
+    }
+    const n = 2 ** (fz - t.z);
+    for (let dy = 0; dy < n; dy++) {
+      for (let dx = 0; dx < n; dx++) {
+        const c = { z: fz, x: t.x * n + dx, y: t.y * n + dy };
+        const url = urlOf(other, c);
+        const e = this.store.get(url);
+        if (e?.state === 'ready' && e.texture) {
+          const extent = tileExtent(c);
+          out.push({
+            url,
+            extent,
+            draw: { texture: e.texture, extent, uvOffset: [0, 0], uvScale: 1, segment: seg },
+          });
+        }
+      }
+    }
+    return out;
   }
 
   private findAncestor(t: TileId, minzoom: number, url: (p: TileId) => string) {
@@ -365,6 +421,7 @@ export class WeatherRenderer implements CustomLayerInterface {
       gl.uniform2f(prog.uniforms.u_magDecode!, chans[mi]!.scale, chans[mi]!.offset);
       gl.uniform1i(prog.uniforms.u_dirChannel!, d.segment.direction_channel);
       gl.uniform1f(prog.uniforms.u_dirScale!, dch.scale);
+      gl.uniform1f(prog.uniforms.u_dirOffset!, dch.offset);
       gl.uniform1f(prog.uniforms.u_dirToOffset!, conv === 'from' ? 180 : 0);
       this.setTileUniforms(gl, prog, d);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
@@ -449,10 +506,4 @@ export class WeatherRenderer implements CustomLayerInterface {
     gl.vertexAttribDivisor(aloc, 0);
     gl.disableVertexAttribArray(aloc);
   }
-}
-
-function tileBBox(t: TileId): [number, number, number, number] {
-  const [x0, y0, x1, y1] = tileExtent(t);
-  const lat = (y: number) => (Math.atan(Math.sinh(Math.PI * (1 - 2 * y))) * 180) / Math.PI;
-  return [x0 * 360 - 180, lat(y1), x1 * 360 - 180, lat(y0)];
 }

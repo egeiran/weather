@@ -5,9 +5,9 @@ import react from '@vitejs/plugin-react';
 import { defineConfig, type Plugin } from 'vite';
 
 const repoRoot = resolve(__dirname, '../..');
-const dataDir = resolve(repoRoot, process.env.WEATHER_LAYERS_OUTPUT_DIR ?? 'data/out');
+const dataDir = resolve(repoRoot, process.env.WEATHER_LAYERS_OUTPUT_DIR || 'data/out');
 const requireAuth = (process.env.WEATHER_DEMO_REQUIRE_AUTH ?? '1') !== '0';
-const token = process.env.VITE_DEMO_TOKEN ?? 'demo-token';
+const token = process.env.VITE_DEMO_TOKEN || 'demo-token';
 
 const TYPES: Record<string, string> = {
   '.json': 'application/json',
@@ -27,7 +27,10 @@ function weatherData(): Plugin {
       server.middlewares.use('/weather-data', (req, res, next) => {
         const path = decodeURIComponent((req.url ?? '/').split('?')[0]!);
         const file = resolve(dataDir, '.' + path);
-        if (!file.startsWith(dataDir + sep)) {
+        // Only the published contract: manifest.json, runs/**, series/**.
+        const allowed =
+          /^\/(manifest\.json|(runs|series)\/[\w./-]+)$/.test(path) && !path.includes('..');
+        if (!allowed || !file.startsWith(dataDir + sep)) {
           res.statusCode = 400;
           return res.end();
         }
@@ -43,7 +46,7 @@ function weatherData(): Plugin {
         res.setHeader('Content-Type', TYPES[ext] ?? 'application/octet-stream');
         res.setHeader(
           'Cache-Control',
-          path.endsWith('manifest.json') ? 'no-cache' : 'public, max-age=31536000, immutable',
+          path.endsWith('manifest.json') ? 'no-cache' : 'private, max-age=31536000, immutable',
         );
         res.setHeader('Content-Length', String(statSync(file).size));
         createReadStream(file).pipe(res);

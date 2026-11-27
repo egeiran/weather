@@ -22,7 +22,7 @@ export function useWeatherLayers(
     setController(c);
     return () => {
       off();
-      c.remove();
+      c.destroy();
       setController(null);
     };
   }, [map]);

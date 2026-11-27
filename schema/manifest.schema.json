@@ -4,194 +4,533 @@
   "title": "weather-layers manifest",
   "description": "Contract between the weather-layers pipeline and clients. See docs/contract.md. Clients must check the major version of schema_version.",
   "type": "object",
-  "required": ["schema_version", "generated_at", "area", "tile", "attribution", "sources", "layers"],
+  "required": [
+    "schema_version",
+    "generated_at",
+    "area",
+    "tile",
+    "attribution",
+    "sources",
+    "layers"
+  ],
   "properties": {
-    "schema_version": { "type": "string", "pattern": "^1\\.[0-9]+\\.[0-9]+$" },
-    "generated_at": { "$ref": "#/$defs/time" },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^1\\.[0-9]+\\.[0-9]+$"
+    },
+    "generated_at": {
+      "$ref": "#/$defs/time"
+    },
     "area": {
       "type": "object",
-      "required": ["name", "bounds"],
-      "properties": { "name": { "type": "string" }, "bounds": { "$ref": "#/$defs/bbox" } }
+      "required": [
+        "name",
+        "bounds"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "bounds": {
+          "$ref": "#/$defs/bbox"
+        }
+      }
     },
     "tile": {
       "type": "object",
-      "required": ["size", "buffer", "format", "encoding", "nodata", "scheme", "time_format"],
+      "required": [
+        "size",
+        "buffer",
+        "format",
+        "encoding",
+        "nodata",
+        "scheme",
+        "time_format"
+      ],
       "properties": {
-        "size": { "const": 256 },
-        "buffer": { "type": "integer", "minimum": 0 },
-        "format": { "const": "png" },
-        "encoding": { "const": "rgb8-linear" },
-        "nodata": { "const": 255 },
-        "scheme": { "const": "xyz" },
-        "time_format": { "type": "string" }
+        "size": {
+          "const": 256
+        },
+        "buffer": {
+          "const": 1
+        },
+        "format": {
+          "const": "png"
+        },
+        "encoding": {
+          "const": "rgb8-linear"
+        },
+        "nodata": {
+          "const": 255
+        },
+        "scheme": {
+          "const": "xyz"
+        },
+        "time_format": {
+          "type": "string"
+        }
       }
     },
     "attribution": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["name", "text", "url"],
+        "required": [
+          "name",
+          "text",
+          "url"
+        ],
         "properties": {
-          "name": { "type": "string" },
-          "text": { "type": "string" },
-          "url": { "type": "string" },
-          "license": { "type": "string" }
+          "name": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "license": {
+            "type": "string"
+          }
         }
       }
     },
     "sources": {
       "type": "object",
-      "additionalProperties": { "$ref": "#/$defs/source" }
+      "additionalProperties": {
+        "$ref": "#/$defs/source"
+      }
     },
     "layers": {
       "type": "object",
-      "propertyNames": { "enum": ["wind", "gust", "wave_height", "wave_period", "swell", "current"] },
-      "additionalProperties": { "$ref": "#/$defs/layer" }
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9_]*$",
+        "description": "Known ids: wind, gust, wave_height, wave_period, swell, current. Clients ignore unknown ids."
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/layer"
+      }
     },
-    "series": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/series" }] }
+    "series": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/series"
+        }
+      ]
+    }
   },
   "$defs": {
-    "time": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$" },
+    "time": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
     "bbox": {
       "type": "array",
-      "items": { "type": "number" },
+      "items": {
+        "type": "number"
+      },
       "minItems": 4,
       "maxItems": 4,
       "description": "[west, south, east, north] in degrees"
     },
     "channel": {
       "type": "object",
-      "required": ["name", "unit", "scale", "offset", "nodata", "min", "max"],
+      "required": [
+        "name",
+        "unit",
+        "scale",
+        "offset",
+        "nodata",
+        "min",
+        "max"
+      ],
       "description": "value = offset + scale * code for code 0..254; code == nodata means no data. With wrap, values are modulo wrap.",
       "properties": {
-        "name": { "type": "string" },
-        "unit": { "type": "string" },
-        "scale": { "type": "number", "exclusiveMinimum": 0 },
-        "offset": { "type": "number" },
-        "nodata": { "const": 255 },
-        "min": { "type": "number" },
-        "max": { "type": "number" },
-        "wrap": { "type": "number" },
-        "description": { "type": "string" }
+        "name": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "scale": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "offset": {
+          "type": "number"
+        },
+        "nodata": {
+          "const": 255
+        },
+        "min": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        },
+        "wrap": {
+          "type": "number"
+        },
+        "description": {
+          "type": "string"
+        }
       }
     },
     "availability": {
       "type": "object",
-      "required": ["x0", "y0", "width", "height", "count", "bits"],
+      "required": [
+        "x0",
+        "y0",
+        "width",
+        "height",
+        "count",
+        "bits"
+      ],
       "description": "Row-major bitset (LSB first) over tiles x0..x0+width-1, y0..y0+height-1; base64.",
       "properties": {
-        "x0": { "type": "integer" },
-        "y0": { "type": "integer" },
-        "width": { "type": "integer", "minimum": 1 },
-        "height": { "type": "integer", "minimum": 1 },
-        "count": { "type": "integer", "minimum": 0 },
-        "bits": { "type": "string" }
+        "x0": {
+          "type": "integer"
+        },
+        "y0": {
+          "type": "integer"
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "bits": {
+          "type": "string"
+        }
       }
     },
     "source": {
       "type": "object",
-      "required": ["label", "status"],
+      "required": [
+        "label",
+        "status"
+      ],
       "properties": {
-        "label": { "type": "string" },
-        "model": { "type": "string" },
-        "run_id": { "type": "string", "pattern": "^\\d{8}T\\d{2}Z$" },
-        "reference_time": { "$ref": "#/$defs/time" },
-        "attribution": { "type": "string" },
-        "license": { "type": "string" },
-        "products": { "type": "array", "items": { "type": "string" } },
-        "start": { "$ref": "#/$defs/time" },
-        "end": { "$ref": "#/$defs/time" },
-        "status": { "enum": ["ok", "stale", "error", "missing", "pending"] },
-        "message": { "type": "string" },
-        "checked_at": { "$ref": "#/$defs/time" },
-        "latest_run": { "type": "string" }
+        "label": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^\\d{8}T\\d{2}Z$"
+        },
+        "reference_time": {
+          "$ref": "#/$defs/time"
+        },
+        "attribution": {
+          "type": "string"
+        },
+        "license": {
+          "type": "string"
+        },
+        "products": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "start": {
+          "$ref": "#/$defs/time"
+        },
+        "end": {
+          "$ref": "#/$defs/time"
+        },
+        "status": {
+          "enum": [
+            "ok",
+            "stale",
+            "error",
+            "missing",
+            "pending"
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "checked_at": {
+          "$ref": "#/$defs/time"
+        },
+        "latest_run": {
+          "type": "string"
+        }
       }
     },
     "segment": {
       "type": "object",
       "required": [
-        "source", "run_id", "label", "start", "end", "step_hours", "times", "tiles",
-        "minzoom", "maxzoom", "bounds", "availability", "channels", "value_channel", "direction_channel"
+        "source",
+        "run_id",
+        "label",
+        "start",
+        "end",
+        "step_hours",
+        "times",
+        "tiles",
+        "minzoom",
+        "maxzoom",
+        "bounds",
+        "availability",
+        "channels",
+        "value_channel",
+        "direction_channel"
       ],
       "properties": {
-        "source": { "type": "string" },
-        "run_id": { "type": "string" },
-        "label": { "type": "string" },
-        "start": { "$ref": "#/$defs/time" },
-        "end": { "$ref": "#/$defs/time" },
-        "step_hours": { "type": ["number", "null"] },
-        "times": { "type": "array", "items": { "$ref": "#/$defs/time" }, "minItems": 1 },
-        "tiles": { "type": "string", "pattern": "\\{time\\}.*\\{z\\}.*\\{x\\}.*\\{y\\}" },
-        "minzoom": { "type": "integer", "minimum": 0 },
-        "maxzoom": { "type": "integer", "minimum": 0 },
-        "bounds": { "$ref": "#/$defs/bbox" },
-        "availability": { "type": "object", "additionalProperties": { "$ref": "#/$defs/availability" } },
-        "channels": { "type": "array", "items": { "$ref": "#/$defs/channel" }, "minItems": 3, "maxItems": 3 },
-        "value_channel": { "type": "integer", "minimum": 0, "maximum": 2 },
-        "direction_channel": { "type": "integer", "minimum": 0, "maximum": 2 }
+        "source": {
+          "type": "string"
+        },
+        "run_id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "start": {
+          "$ref": "#/$defs/time"
+        },
+        "end": {
+          "$ref": "#/$defs/time"
+        },
+        "step_hours": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "times": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/time"
+          },
+          "minItems": 1
+        },
+        "tiles": {
+          "type": "string",
+          "pattern": "\\{time\\}.*\\{z\\}.*\\{x\\}.*\\{y\\}"
+        },
+        "minzoom": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxzoom": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "bounds": {
+          "$ref": "#/$defs/bbox"
+        },
+        "availability": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/availability"
+          }
+        },
+        "channels": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/channel"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "value_channel": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2
+        },
+        "direction_channel": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2
+        }
       }
     },
     "layer": {
       "type": "object",
-      "required": ["product", "unit", "value", "direction", "direction_convention", "start", "end", "segments"],
+      "required": [
+        "product",
+        "unit",
+        "value",
+        "direction",
+        "direction_convention",
+        "start",
+        "end",
+        "segments"
+      ],
       "properties": {
-        "product": { "enum": ["wind", "waves", "swell", "current"] },
-        "unit": { "type": "string" },
-        "value": { "type": "string" },
-        "direction": { "type": "string" },
+        "product": {
+          "type": "string",
+          "description": "wind, waves, swell or current (minor versions may add more)"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "direction": {
+          "type": "string"
+        },
         "direction_convention": {
-          "enum": ["from", "to"],
+          "enum": [
+            "from",
+            "to"
+          ],
           "description": "from = meteorological (wind, waves); to = oceanographic (currents)"
         },
-        "particles": { "type": "boolean" },
-        "start": { "$ref": "#/$defs/time" },
-        "end": { "$ref": "#/$defs/time" },
-        "segments": { "type": "array", "items": { "$ref": "#/$defs/segment" }, "minItems": 1 }
+        "particles": {
+          "type": "boolean"
+        },
+        "start": {
+          "$ref": "#/$defs/time"
+        },
+        "end": {
+          "$ref": "#/$defs/time"
+        },
+        "segments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/segment"
+          },
+          "minItems": 1
+        }
       }
     },
     "series": {
       "type": "object",
-      "required": ["id", "template", "format", "grid", "times", "variables", "availability"],
+      "required": [
+        "id",
+        "template",
+        "format",
+        "grid",
+        "times",
+        "variables",
+        "availability"
+      ],
       "properties": {
-        "id": { "type": "string" },
-        "template": { "type": "string", "pattern": "\\{cy\\}.*\\{cx\\}" },
-        "format": { "const": "WLS1+gzip" },
+        "id": {
+          "type": "string"
+        },
+        "template": {
+          "type": "string",
+          "pattern": "\\{cy\\}.*\\{cx\\}"
+        },
+        "format": {
+          "const": "WLS1+gzip"
+        },
         "grid": {
           "type": "object",
-          "required": ["origin", "dlon", "dlat", "chunk", "row0", "col0", "rows", "cols"],
+          "required": [
+            "origin",
+            "dlon",
+            "dlat",
+            "chunk",
+            "row0",
+            "col0",
+            "rows",
+            "cols"
+          ],
           "properties": {
-            "origin": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
-            "dlon": { "type": "number" },
-            "dlat": { "type": "number" },
-            "chunk": { "type": "integer" },
-            "row0": { "type": "integer" },
-            "col0": { "type": "integer" },
-            "rows": { "type": "integer" },
-            "cols": { "type": "integer" }
+            "origin": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "dlon": {
+              "type": "number"
+            },
+            "dlat": {
+              "type": "number"
+            },
+            "chunk": {
+              "type": "integer"
+            },
+            "row0": {
+              "type": "integer"
+            },
+            "col0": {
+              "type": "integer"
+            },
+            "rows": {
+              "type": "integer"
+            },
+            "cols": {
+              "type": "integer"
+            }
           }
         },
-        "times": { "type": "array", "items": { "$ref": "#/$defs/time" } },
+        "times": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/time"
+          }
+        },
         "variables": {
           "type": "array",
           "items": {
             "allOf": [
-              { "$ref": "#/$defs/channel" },
+              {
+                "$ref": "#/$defs/channel"
+              },
               {
                 "type": "object",
-                "required": ["product", "segments"],
+                "required": [
+                  "product",
+                  "segments"
+                ],
                 "properties": {
-                  "product": { "type": "string" },
+                  "product": {
+                    "type": "string"
+                  },
                   "segments": {
                     "type": "array",
                     "items": {
                       "type": "object",
-                      "required": ["source", "run_id", "start", "end"],
+                      "required": [
+                        "source",
+                        "run_id",
+                        "start",
+                        "end"
+                      ],
                       "properties": {
-                        "source": { "type": "string" },
-                        "run_id": { "type": "string" },
-                        "start": { "$ref": "#/$defs/time" },
-                        "end": { "$ref": "#/$defs/time" },
-                        "step_hours": { "type": ["number", "null"] }
+                        "source": {
+                          "type": "string"
+                        },
+                        "run_id": {
+                          "type": "string"
+                        },
+                        "start": {
+                          "$ref": "#/$defs/time"
+                        },
+                        "end": {
+                          "$ref": "#/$defs/time"
+                        },
+                        "step_hours": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        }
                       }
                     }
                   }
@@ -200,7 +539,9 @@
             ]
           }
         },
-        "availability": { "$ref": "#/$defs/availability" }
+        "availability": {
+          "$ref": "#/$defs/availability"
+        }
       }
     }
   }

@@ -108,6 +108,21 @@ class HttpClient:
             json.dumps({"url": url, "status": resp.status, "headers": resp.headers})
         )
 
+    def prune_cache(self, max_age_h: float) -> int:
+        """Delete cached responses older than max_age_h hours; returns the number removed."""
+        if self._cache_dir is None:
+            return 0
+        cutoff = time.time() - max_age_h * 3600
+        removed = 0
+        for f in self._cache_dir.glob("*/*"):
+            try:
+                if f.is_file() and f.stat().st_mtime < cutoff:
+                    f.unlink()
+                    removed += 1
+            except FileNotFoundError:
+                pass
+        return removed
+
     def namespaced(self, namespace: str) -> HttpClient:
         """A view of this client whose cache keys are prefixed (e.g. with a run id), for
         datasets whose URLs stay the same while their content changes (aggregations)."""

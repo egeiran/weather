@@ -65,10 +65,12 @@ void main() {
   float lum = dot(col.rgb, vec3(0.2126, 0.7152, 0.0722));
   vec3 mark = lum < 0.42 ? vec3(1.0) : u_markColor.rgb;
   if (u_threshold > -1e29) {
-    float over = step(u_threshold, v);
-    float fw = max(fwidth(v), 1e-5);
-    float d = abs(v - u_threshold) / fw;
-    float line = 1.0 - smoothstep(0.6 * u_pixelRatio, 1.6 * u_pixelRatio, d);
+    // Strictly above, like the point panel (thresholds.ts exceeds()).
+    float over = v > u_threshold ? 1.0 : 0.0;
+    float fw = fwidth(v);
+    // No contour where the field is flat (a plateau exactly at the threshold): fwidth ~ 0 there.
+    float d = abs(v - u_threshold) / max(fw, 1e-5);
+    float line = fw < 1e-4 ? 0.0 : 1.0 - smoothstep(0.6 * u_pixelRatio, 1.6 * u_pixelRatio, d);
     if (u_thresholdStyle == 0) {
       // Diagonal stripes in screen space (constant density at every zoom).
       float k = fract((gl_FragCoord.x + gl_FragCoord.y) / (7.0 * u_pixelRatio));
@@ -99,6 +101,7 @@ uniform int u_magChannel;
 uniform vec2 u_magDecode;
 uniform int u_dirChannel;
 uniform float u_dirScale;
+uniform float u_dirOffset;
 uniform float u_dirToOffset;  // +180 for "from" conventions, 0 for "to"
 uniform float u_magFactor;
 uniform float u_maxMag;
@@ -120,7 +123,7 @@ void main() {
       float w = (dx == 0 ? 1.0 - f.x : f.x) * (dy == 0 ? 1.0 - f.y : f.y);
       if (cm < 254.5 && cd < 254.5) {
         float mag = (u_magDecode.y + u_magDecode.x * cm) * u_magFactor;
-        float rad = radians(cd * u_dirScale + u_dirToOffset);
+        float rad = radians(u_dirOffset + cd * u_dirScale + u_dirToOffset);
         vsum += w * mag * vec2(sin(rad), cos(rad));
         wsum += w;
       }

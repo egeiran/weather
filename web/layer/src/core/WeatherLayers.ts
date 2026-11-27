@@ -176,17 +176,15 @@ export class WeatherLayers {
       this.map?.triggerRepaint();
       this.queueEmit();
     });
-    if (typeof matchMedia === 'function') {
-      matchMedia('(prefers-reduced-motion: reduce)').addEventListener?.('change', () =>
-        this.changed(),
-      );
-    }
   }
+
+  private onMotionChange = () => this.changed();
 
   // -- lifecycle ---------------------------------------------------------------------------
 
   addTo(map: MapLibreMap): this {
     this.map = map;
+    this.abort = new AbortController();
     this.renderer = new WeatherRenderer(
       this.opts.id,
       this.store,
@@ -201,11 +199,26 @@ export class WeatherLayers {
     );
     const attach = () => {
       if (!this.map || !this.renderer || this.map.getLayer(this.opts.id)) return;
-      this.map.addLayer(this.renderer, this.opts.beforeId ?? this.firstSymbolLayer());
+      try {
+        this.map.addLayer(this.renderer, this.opts.beforeId ?? this.firstSymbolLayer());
+      } catch {
+        // Style not ready yet ("Style is not done loading"): the next styledata event retries.
+      }
     };
-    if (map.isStyleLoaded()) attach();
-    map.on('style.load', attach); // re-attach after setStyle (e.g. light/dark switch)
-    this.detachers.push(() => map.off('style.load', attach));
+    attach();
+    // 'style.load' after setStyle (light/dark switch, context restore); 'styledata' covers maps
+    // whose style finished loading while tiles were still streaming (isStyleLoaded() false).
+    map.on('style.load', attach);
+    map.on('styledata', attach);
+    this.detachers.push(() => {
+      map.off('style.load', attach);
+      map.off('styledata', attach);
+    });
+    if (typeof matchMedia === 'function') {
+      const mq = matchMedia('(prefers-reduced-motion: reduce)');
+      mq.addEventListener?.('change', this.onMotionChange);
+      this.detachers.push(() => mq.removeEventListener?.('change', this.onMotionChange));
+    }
     void this.refresh();
     if (this.opts.manifestRefreshMs > 0) {
       this.pollTimer = setInterval(() => void this.refresh(), this.opts.manifestRefreshMs);
@@ -215,14 +228,21 @@ export class WeatherLayers {
 
   private detachers: (() => void)[] = [];
 
+  /** Detach from the map. The controller can be added to a map again later. */
   remove() {
     if (this.pollTimer) clearInterval(this.pollTimer);
+    this.pollTimer = null;
     this.detachers.forEach((d) => d());
     this.detachers = [];
     this.abort.abort();
     if (this.map?.getLayer(this.opts.id)) this.map.removeLayer(this.opts.id);
     this.map = null;
     this.renderer = null;
+  }
+
+  /** Remove from the map and drop all listeners (final). */
+  destroy() {
+    this.remove();
     this.listeners.clear();
   }
 
@@ -238,6 +258,7 @@ export class WeatherLayers {
       if (!this.manifest || m.generated_at !== this.manifest.generated_at) {
         this.manifest = m;
         this.chunkCache.clear();
+        this.store.resetErrors();
       }
       this.manifestError = null;
     } catch (err) {

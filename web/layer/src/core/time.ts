@@ -37,24 +37,35 @@ function nearestIndex(times: number[], t: number): number {
 }
 
 /**
- * Pick the segment and nearest valid time for `t`. Returns null when `t` is outside the
- * layer's data (more than half a step before its first or after its last time).
+ * Pick the segment and nearest valid time for `t`. Between two segments (e.g. the last MEPS
+ * hour and the first ECMWF 3-hourly step) the nearer boundary time wins, so a stitched layer has
+ * no holes. Returns null only when `t` is more than half a step before the layer's first time
+ * or after its last time.
  */
 export function resolveTime(layer: LayerInfo, t: Date): ResolvedTime | null {
   const target = t.getTime();
-  let best: { seg: Segment; i: number; idx: number; dist: number } | null = null;
+  const all: { ms: number; iso: string; seg: Segment; i: number }[] = [];
   layer.segments.forEach((seg, i) => {
-    const times = seg.times.map((s) => Date.parse(s));
-    if (!times.length) return;
-    const idx = nearestIndex(times, target);
-    const dist = Math.abs(times[idx]! - target);
-    const tol = ((seg.step_hours ?? 1) * HOUR) / 2 + 1;
-    if (dist <= tol && (!best || dist < best.dist)) best = { seg, i, idx, dist };
+    for (const iso of seg.times) all.push({ ms: Date.parse(iso), iso, seg, i });
   });
-  if (!best) return null;
-  const b = best as { seg: Segment; i: number; idx: number };
-  const iso = b.seg.times[b.idx]!;
-  return { segment: b.seg, segmentIndex: b.i, time: new Date(iso), timeKey: timeKey(iso) };
+  if (!all.length) return null;
+  all.sort((a, b) => a.ms - b.ms);
+  const first = all[0]!;
+  const last = all[all.length - 1]!;
+  const tolStart = ((first.seg.step_hours ?? 1) * HOUR) / 2 + 1;
+  const tolEnd = ((last.seg.step_hours ?? 1) * HOUR) / 2 + 1;
+  if (target < first.ms - tolStart || target > last.ms + tolEnd) return null;
+  const idx = nearestIndex(
+    all.map((x) => x.ms),
+    target,
+  );
+  const hit = all[idx]!;
+  return {
+    segment: hit.seg,
+    segmentIndex: hit.i,
+    time: new Date(hit.iso),
+    timeKey: timeKey(hit.iso),
+  };
 }
 
 export interface TimeRange {

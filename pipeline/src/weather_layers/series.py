@@ -42,8 +42,20 @@ def ocean_only(window: SeriesWindow) -> bool:
     return env not in ("0", "false", "no")
 
 
-def series_id(runs: dict[str, dict], area: str) -> str:
-    key = json.dumps({"area": area, "runs": {s: m["run_id"] for s, m in sorted(runs.items())}})
+def series_id(runs: dict[str, dict], area: str, settings_key: str = "") -> str:
+    """Stable id of a series build: area, the runs (with their build time, so a forced rebuild
+    gets a new id) and any setting that changes the output."""
+    key = json.dumps(
+        {
+            "area": area,
+            "runs": {
+                s: [m["run_id"], m.get("build_id", m.get("created_at", ""))]
+                for s, m in sorted(runs.items())
+            },
+            "settings": settings_key,
+            "format": 1,
+        }
+    )
     return hashlib.sha1(key.encode()).hexdigest()[:12]
 
 
@@ -70,7 +82,7 @@ def build_series(
     state_dir: Path,
 ) -> dict | None:
     """Stitch all sources' series state into chunk files. Returns the manifest `series` entry."""
-    sid = series_id(runs, area_name)
+    sid = series_id(runs, area_name, f"ocean_only={ocean_only(window)}")
     final = f"series/{sid}"
     # Variables in a fixed order, with their stitched segments.
     variables = []

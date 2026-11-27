@@ -6,14 +6,14 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
-const out = resolve(root, process.env.WEATHER_LAYERS_OUTPUT_DIR ?? 'data/out');
+const out = resolve(root, process.env.WEATHER_LAYERS_OUTPUT_DIR || 'data/out');
 
 if (!existsSync(resolve(out, 'manifest.json'))) {
   console.log(`No pipeline output in ${out}; running the pipeline for the development area first…`);
   const r = spawnSync('uv', ['run', '--project', 'pipeline', 'weather-layers', 'run'], {
     cwd: root,
     stdio: 'inherit',
-    env: { ...process.env, WEATHER_LAYERS_AREA: process.env.WEATHER_LAYERS_AREA ?? 'dev' },
+    env: { ...process.env, WEATHER_LAYERS_AREA: process.env.WEATHER_LAYERS_AREA || 'dev' },
   });
   if (r.status !== 0) process.exit(r.status ?? 1);
 } else {

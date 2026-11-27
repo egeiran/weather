@@ -17,12 +17,20 @@ def _env(name: str, default: str) -> str:
     return value if value not in (None, "") else default
 
 
+def _tristate(value: str) -> bool | None:
+    v = value.strip().lower()
+    if v in ("auto", ""):
+        return None
+    return v not in ("0", "false", "no", "off")
+
+
 @dataclass(frozen=True)
 class Settings:
     output_dir: Path = Path("data/out")
     state_dir: Path = Path("data/state")
     cache_dir: Path = Path("data/cache")
-    use_cache: bool = True
+    use_cache: bool | None = None  # None = auto: on for the dev area only
+    cache_max_age_h: float = 48.0
     user_agent: str = DEFAULT_USER_AGENT
     area: str = "dev"
     retention: int = 2
@@ -31,6 +39,11 @@ class Settings:
     http_timeout_s: float = 120.0
     max_retries: int = 5
     extra: dict[str, str] = field(default_factory=dict)
+
+    @property
+    def cache_enabled(self) -> bool:
+        """Raw download cache: on by default only for the development area."""
+        return self.use_cache if self.use_cache is not None else self.area == "dev"
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -46,7 +59,8 @@ class Settings:
             output_dir=Path(_env("WEATHER_LAYERS_OUTPUT_DIR", "data/out")),
             state_dir=Path(_env("WEATHER_LAYERS_STATE_DIR", "data/state")),
             cache_dir=Path(_env("WEATHER_LAYERS_CACHE_DIR", "data/cache")),
-            use_cache=_env("WEATHER_LAYERS_CACHE", "1") not in ("0", "false", "no"),
+            use_cache=_tristate(_env("WEATHER_LAYERS_CACHE", "auto")),
+            cache_max_age_h=float(_env("WEATHER_LAYERS_CACHE_MAX_AGE_H", "48")),
             user_agent=_env("WEATHER_LAYERS_USER_AGENT", DEFAULT_USER_AGENT),
             area=_env("WEATHER_LAYERS_AREA", "dev"),
             retention=max(1, int(_env("WEATHER_LAYERS_RETENTION", "2"))),

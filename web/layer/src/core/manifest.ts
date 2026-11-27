@@ -1,4 +1,4 @@
-import type { FetchFn, LayerId, Manifest } from './types';
+import { LAYER_IDS, type FetchFn, type LayerId, type Manifest } from './types';
 
 export const SUPPORTED_MAJOR = 1;
 
@@ -32,6 +32,7 @@ export async function loadManifest(
   return checkManifest(await res.json());
 }
 
+/** Layers this client knows, in display order. Unknown ids (newer minor versions) are ignored. */
 export function availableLayers(m: Manifest): LayerId[] {
-  return (Object.keys(m.layers) as LayerId[]).filter((k) => m.layers[k]?.segments.length);
+  return LAYER_IDS.filter((k) => m.layers[k]?.segments.length);
 }

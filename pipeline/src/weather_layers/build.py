@@ -14,6 +14,7 @@ import json
 import os
 import shutil
 import time
+import uuid
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -206,6 +207,7 @@ def build_run(
         "run_id": run.run_id,
         "reference_time": iso(run.reference_time),
         "created_at": iso(datetime.now(UTC)),
+        "build_id": uuid.uuid4().hex[:12],
         "area": area_name,
         "area_bounds": area.as_list(),
         **source.describe(),

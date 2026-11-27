@@ -15,6 +15,9 @@ export interface TileEntry {
   lastUsed: number;
   priority: number;
   abort?: AbortController;
+  /** For failed tiles: when to try again (ms epoch) and how many attempts failed. */
+  retryAt?: number;
+  failures?: number;
 }
 
 export interface TileStoreStats {
@@ -47,6 +50,10 @@ export class TileStore {
     return ++this.clock;
   }
 
+  private now(): number {
+    return Date.now();
+  }
+
   get(url: string): TileEntry | undefined {
     const e = this.entries.get(url);
     if (e) e.lastUsed = this.clock;
@@ -56,6 +63,15 @@ export class TileStore {
   /** Request a tile. Lower priority number = sooner. Re-requests just update priority. */
   request(url: string, priority = 0): TileEntry {
     let e = this.entries.get(url);
+    if (e && e.state === 'error' && (e.retryAt ?? 0) <= this.now()) {
+      // Transient failures (5xx, network blip, 401 during a token refresh) are retried with
+      // exponential backoff: 2, 4, 8 … 60 s.
+      e.state = 'loading';
+      e.priority = priority;
+      this.queue.push(e);
+      this.pump();
+      return e;
+    }
     if (e) {
       e.lastUsed = this.clock;
       if (e.state === 'loading' && !e.abort) e.priority = Math.min(e.priority, priority);
@@ -66,6 +82,12 @@ export class TileStore {
     this.queue.push(e);
     this.pump();
     return e;
+  }
+
+  /** Forget failed tiles (e.g. after a new manifest) so they are requested again. */
+  resetErrors() {
+    for (const [url, e] of this.entries) if (e.state === 'error') this.entries.delete(url);
+    this.stats.errors = 0;
   }
 
   /** Drop queued (not yet started) requests that are no longer wanted. */
@@ -103,15 +125,19 @@ export class TileStore {
         this.stats.bytes += blob.size;
         e.bitmap = await decodeTileBlob(blob);
         e.state = 'decoded';
+        e.failures = 0;
       }
     } catch (err) {
       if ((err as Error).name !== 'AbortError') {
         e.state = 'error';
-        this.stats.errors++;
+        e.failures = (e.failures ?? 0) + 1;
+        e.retryAt = this.now() + Math.min(60_000, 1000 * 2 ** e.failures);
+        setTimeout(() => this.onChange(), Math.min(60_000, 1000 * 2 ** e.failures) + 10);
       } else {
         this.entries.delete(e.url);
       }
     } finally {
+      this.stats.errors = [...this.entries.values()].filter((x) => x.state === 'error').length;
       this.inFlight--;
       this.stats.inFlight = this.inFlight;
       e.abort = undefined;

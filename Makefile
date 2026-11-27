@@ -18,7 +18,7 @@ dev:
 	npm run dev
 
 test:
-	uv run --project pipeline pytest
+	cd pipeline && uv run pytest
 	npm test
 
 lint:
