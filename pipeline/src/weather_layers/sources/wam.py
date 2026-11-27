@@ -12,6 +12,7 @@ Facts (verified live 2026-11-27, see docs/data-sources.md and decision 0004):
 
 from __future__ import annotations
 
+import os
 import re
 from collections.abc import Iterator
 
@@ -62,10 +63,25 @@ class Wam(Source):
 
     def __init__(self, cache: bool = True) -> None:
         self.cache = cache
+        self.run_hours: set[int] | None = None  # None = every run
+
+    def configure(self, area_name: str, area: BBox) -> None:
+        env = os.environ.get("WEATHER_LAYERS_WAM_RUN_HOURS", "auto").strip()
+        if env == "auto":
+            # Owner's choice (decision 0011): with the 800 m overlays a wave run costs ~0.6 GB for
+            # all of Norway, so large areas take only the 00Z and 12Z runs.
+            big = (area.east - area.west) * (area.north - area.south) > 50
+            self.run_hours = {0, 12} if big else None
+        elif env in ("", "all"):
+            self.run_hours = None
+        else:
+            self.run_hours = {int(h) for h in env.split(",")}
 
     def latest_complete_run(self, http: HttpClient, is_built=None) -> Run | None:
         xml = http.get(CATALOG).text
         names = sorted({m.group(0) for m in NAME_RE.finditer(xml)}, reverse=True)
+        if self.run_hours is not None:
+            names = [n for n in names if int(NAME_RE.match(n).group(2)) in self.run_hours]
         for name in names[:4]:
             m = NAME_RE.match(name)
             assert m

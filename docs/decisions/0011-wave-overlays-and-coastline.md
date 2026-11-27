@@ -28,3 +28,8 @@ cells deep inside large fjords. The wave layer therefore changed shape at +66 h 
   wind-sea partitions still come from WW3 only.
 - Near the coast, ECMWF wave values are extrapolated from the nearest ECMWF sea cell — fine for a
   ~10-day outlook, labelled as ECMWF in the UI.
+
+## Volume choice (owner, 2026-11-27)
+Waves (WW3 + 800 m) are fetched from the **00Z and 12Z runs only** for large areas
+(`WEATHER_LAYERS_WAM_RUN_HOURS=auto`); small areas take every run. Norway total ≈ 2.7 GB/day
+(every 6 h would be ≈ 3.8 GB/day; without the 800 m grids 1.8 GB/day).

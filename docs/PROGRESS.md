@@ -53,6 +53,8 @@ Regression tests were added for 2, 3, 4, 6, 9, 11 and 13.
 - Polygon areas + strip-wise fetching; `norway` polygon halves the download (decision 0010).
 - Coastline drawn above the weather field (light/dark aware).
 - Windy-style UI: layer rail, slim legend, settings popover, model/run in the timeline, draggable pin.
+- Fjord waves: MyWaveWAM 800 m overlays on WW3 (00/12Z for large areas); ECMWF waves follow
+  WW3's coastline (decision 0011). Windy ECMWF comparison in docs/validation.md.
 
 ## Next steps
 

@@ -54,6 +54,8 @@ run logs `pipeline.locked` and exits 0).
 | `WEATHER_LAYERS_CONCURRENCY` | `2` | parallel HTTP requests |
 | `WEATHER_LAYERS_HTTP_TIMEOUT` / `_MAX_RETRIES` | `120` / `5` | |
 | `WEATHER_LAYERS_MEPS_RUN_HOURS` | `auto` | `auto` = 00/06/12/18Z for large areas, all runs for small; or `all`, or `0,6,12,18` |
+| `WEATHER_LAYERS_WAM_RUN_HOURS` | `auto` | `auto` = 00/12Z for large areas (decision 0011), all runs for small; or `all`, or a list |
+| `WEATHER_LAYERS_WAM800` | `1` | MyWaveWAM 800 m fjord-wave overlays on/off |
 | `WEATHER_LAYERS_NORKYST_STRIDE` | `auto` | `auto` = 1 (800 m) for small areas, 2 (1.6 km) for the coast |
 | `WEATHER_LAYERS_ECMWF_BASE` | AWS open-data mirror | or `https://data.ecmwf.int/forecasts` |
 | `WEATHER_LAYERS_ECMWF_MIN_STEP` / `_MAX_STEP` | `48` / `240` | ECMWF steps fetched |
@@ -73,8 +75,11 @@ run logs `pipeline.locked` and exits 0).
 
 ## Sizing
 
-Norway polygon (`norway`, measured 2026-11-27): 942 MB downloaded per full set of runs,
-3 min wall time, 156 MB public output (9,004 files), 371 MB state, peak RSS 1.4 GB, **≈ 1.8 GB/day**.
+Norway polygon (`norway`, measured 2026-11-27): 942 MB downloaded per full set of runs without
+the 800 m wave overlays, 3 min wall time, 156 MB public output (9,004 files), 371 MB state, peak RSS
+1.4 GB. With the 800 m overlays a wave run is 596 MB instead of 93 MB; taken at 00/12Z only
+(owner's choice) the daily total is **≈ 2.7 GB/day** (MEPS 0.53, WW3 + 800 m 1.2, NorKyst 0.55,
+ECMWF 0.34).
 The table below is the larger coast rectangle (`coast`) for comparison; see docs/performance.md.
 
 ### Coast rectangle
