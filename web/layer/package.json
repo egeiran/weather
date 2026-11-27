@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "MapLibre layers for value-encoded weather tiles: colour field, arrows, particles, point series, thresholds.",
-  "license": "MIT",
+  "license": "UNLICENSED",
   "type": "module",
   "sideEffects": false,
   "exports": {

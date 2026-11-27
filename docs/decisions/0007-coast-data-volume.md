@@ -22,3 +22,8 @@ full resolution):
 - Coast MEPS is up to 6 h old instead of 3 h. NorKyst coast tiles stop at z6 (1 km/px).
 - Further savings (not implemented yet): fetch rotated windows in row bands (−35…−50% for WW3 and
   NorKyst), and HDF5 byte-range reads of NorKyst netCDF4 files (≈ 6× less than OPeNDAP).
+
+## Measured (2026-11-27, full-coast run)
+MEPS 351 MB, WW3 318 MB, NorKyst (stride 2) 1.03 GB, ECMWF 170 MB per run → ≈ 4.0 GB/day with
+these defaults (the 3.5 GB estimate under-counted WW3's six variables). Row-band fetching is the
+next lever if the volume must go down.

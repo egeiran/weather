@@ -7,9 +7,12 @@ nothing new, a run costs one catalog request per source.
 
 from __future__ import annotations
 
+import fcntl
 import json
 import shutil
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -112,7 +115,35 @@ def apply_retention(
         shutil.rmtree(stale, ignore_errors=True)
 
 
+class AlreadyRunning(RuntimeError):
+    pass
+
+
+@contextmanager
+def run_lock(state_dir: Path) -> Iterator[None]:
+    """Prevent overlapping scheduled runs (non-blocking; a second run exits immediately)."""
+    state_dir.mkdir(parents=True, exist_ok=True)
+    with open(state_dir / ".lock", "w") as fh:
+        try:
+            fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            raise AlreadyRunning("another pipeline run holds the lock") from exc
+        try:
+            yield
+        finally:
+            fcntl.flock(fh, fcntl.LOCK_UN)
+
+
 def run_pipeline(settings: Settings, force: bool = False) -> dict:
+    try:
+        with run_lock(Path(settings.state_dir)):
+            return _run_pipeline(settings, force)
+    except AlreadyRunning:
+        log("pipeline.locked", level="warning", reason="previous run still in progress")
+        return {}
+
+
+def _run_pipeline(settings: Settings, force: bool = False) -> dict:
     t0 = time.perf_counter()
     storage = LocalStorage(settings.output_dir)
     settings.state_dir.mkdir(parents=True, exist_ok=True)

@@ -34,3 +34,9 @@ Option 3.
   lattice, nearest-sea borrowing). The click panel labels the cell position.
 - The client decompresses with `DecompressionStream('gzip')` and tolerates proxies that already
   removed the gzip layer (checks the magic bytes).
+
+## Addendum (after the full-coast run)
+For large areas (`WEATHER_LAYERS_SERIES_OCEAN_ONLY=auto`, > 200k lattice cells) only chunks that
+contain ocean-model data are written: inland Sweden/Finland is irrelevant for the fleet and would
+add ~10k files per publish. Coastal clicks still work (chunks are 11 × 10 km and coastal cells
+borrow the nearest sea value). Measured on the coast: 9,410 chunks, 86 MB per publish, 9–11 KB per click.

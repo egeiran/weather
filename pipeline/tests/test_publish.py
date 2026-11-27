@@ -136,3 +136,13 @@ def test_crash_mid_build_leaves_only_staging_which_is_cleaned(env, monkeypatch):
     # the half-written staging dir is removed by retention/cleanup
     assert not any(".staging" in f for f in files(settings.output_dir))
     assert not (settings.output_dir / "runs/meps/20261127T09Z").exists()
+
+
+def test_overlapping_run_is_skipped(env):
+    settings, sources = env
+    from weather_layers.publish import run_lock
+
+    with run_lock(settings.state_dir):
+        assert publish.run_pipeline(settings) == {}
+    assert sources["meps"].fetches == 0
+    assert publish.run_pipeline(settings)["sources"]["meps"]["run_id"] == "20261127T06Z"

@@ -4,7 +4,6 @@ version = "0.1.0"
 description = "Fetch open forecast data (MET Norway, ECMWF), regrid to Web Mercator and write value-encoded tiles, point series and a manifest."
 readme = "README.md"
 requires-python = ">=3.12"
-license = "MIT"
 dependencies = [
     "numpy>=2.1",
     "scipy>=1.14",

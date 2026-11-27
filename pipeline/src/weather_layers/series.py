@@ -14,6 +14,7 @@ from __future__ import annotations
 import gzip
 import hashlib
 import json
+import os
 import struct
 from datetime import datetime
 from pathlib import Path
@@ -31,6 +32,14 @@ from .storage import LocalStorage
 
 MAGIC = b"WLS1"
 SERIES_PRODUCTS = ("wind", "waves", "swell", "current")
+
+
+def ocean_only(window: SeriesWindow) -> bool:
+    """Large areas keep only chunks touching ocean-model data (decision 0003)."""
+    env = os.environ.get("WEATHER_LAYERS_SERIES_OCEAN_ONLY", "auto")
+    if env == "auto":
+        return window.ny * window.nx > 200_000
+    return env not in ("0", "false", "no")
 
 
 def series_id(runs: dict[str, dict], area: str) -> str:
@@ -126,6 +135,9 @@ def build_series(
 
     staging = storage.staging_prefix(final)
     nv, nt = len(variables), len(times)
+    only_ocean = ocean_only(window)
+    ocean_vars = [vi for vi, pname, _, _ in plans if PRODUCTS[pname].ocean]
+    entry["ocean_only"] = only_ocean
     present: list[tuple[int, int]] = []
     with step("series", id=sid, variables=nv, times=nt, rows=window.ny, cols=window.nx) as info:
         for band in range(0, window.ny, CHUNK):
@@ -147,6 +159,8 @@ def build_series(
             for c in range(0, window.nx, CHUNK):
                 block = out[:, :, c : c + CHUNK, :]
                 if (block == enc.NODATA).all():
+                    continue
+                if only_ocean and ocean_vars and (block[ocean_vars] == enc.NODATA).all():
                     continue
                 cy = (window.r0 + band) // CHUNK
                 cx = (window.c0 + c) // CHUNK
