@@ -7,6 +7,7 @@ import Map, {
 } from 'react-map-gl/maplibre';
 import {
   DEFAULT_THRESHOLDS,
+  type ArrowsSetting,
   RAMP_FAMILIES,
   type LayerId,
   type Locale,
@@ -70,7 +71,9 @@ function Demo(props: { locale: Locale; onLocale: (l: Locale) => void }) {
   const [time, setTime] = useState<Date>(initialTime);
   const [playing, setPlaying] = useState(false);
   const [particles, setParticles] = useState<ParticlesSetting>(parseParticles);
-  const [arrows, setArrows] = useState(params.get('arrows') !== '0');
+  const [arrows, setArrows] = useState<ArrowsSetting>(
+    params.get('arrows') === '1' ? true : params.get('arrows') === '0' ? false : 'auto',
+  );
   const [thresholds, setThresholds] = useState<Thresholds>(DEFAULT_THRESHOLDS);
   const [thresholdsEnabled, setThresholdsEnabled] = useState(params.get('thresholds') !== '0');
   const [thresholdStyle, setThresholdStyle] = useState<ThresholdStyle>(
@@ -189,7 +192,6 @@ function Demo(props: { locale: Locale; onLocale: (l: Locale) => void }) {
           onLayer={setLayer}
           particles={particles}
           onParticles={setParticles}
-          arrows={arrows}
           onArrows={setArrows}
         />
         <div className="wl-panel demo-buttons">

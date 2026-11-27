@@ -21,6 +21,17 @@ Own implementation inside the single weather custom layer:
 - `particles: 'auto' | true | false`; 'auto' turns them off for `prefers-reduced-motion: reduce`
   and `navigator.connection.saveData` or `effectiveType` in {slow-2g, 2g, 3g}.
 
+## Owner's choice and tuning (2026-11-27)
+The owner chose **particles as the default**, with arrows as the cheaper option, and asked for a
+subtler, more Windy-like look. Hence:
+- `arrows: 'auto'` (default) draws arrows only when particles are off (by toggle, reduced motion
+  or a slow connection); `true` shows both, `false` none.
+- Thin translucent streaks: white 0.5 on dark maps, slate 0.36 on light maps, ~0.9 CSS px wide;
+  opacity grows with speed (calm areas almost invisible).
+- Screen speed ∝ |v|^0.6 so light winds still draw streaks; trails fade ×0.96 per frame with an
+  extra −1.5/255 so 8-bit trails always vanish (no ghost haze).
+- Waves move at half speed and 60 % opacity (long-period swell would otherwise dominate).
+
 ## Consequences
 - Measured 60 fps (Apple M4, 1440×900 @2x) in every scenario; headless CI uses SwiftShader where
   trails look shorter.

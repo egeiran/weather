@@ -1,7 +1,7 @@
 # 0008 — Colour ramps: sequential, colour-blind safe families; "calm" by default
 
-**Status:** accepted as default (2026-11-27); the owner was shown the three families side by side
-(artifact "Værlagets utseende") and can switch with `rampFamily` at any time.
+**Status:** accepted (2026-11-27). The owner compared the three families side by side (artifact
+"Værlagets utseende") and chose **calm** with **hatching**; `rampFamily`/`thresholdStyle` still switch.
 
 ## Context
 Ramps must read on both OpenFreeMap styles (positron light, dark), work for colour-blind

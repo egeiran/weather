@@ -44,3 +44,24 @@ describe('particles setting', () => {
     expect(w.getState().particles.enabled).toBe(false);
   });
 });
+
+describe('arrows setting', () => {
+  test("'auto' shows arrows only when particles are off", () => {
+    mockEnv(false, { effectiveType: '4g' });
+    const w = new WeatherLayers(opts);
+    expect(w.getState()).toMatchObject({ arrows: false, arrowsSetting: 'auto' });
+    w.setParticles(false);
+    expect(w.getState().arrows).toBe(true);
+  });
+
+  test("'auto' falls back to arrows with reduced motion", () => {
+    mockEnv(true);
+    expect(new WeatherLayers(opts).getState().arrows).toBe(true);
+  });
+
+  test('explicit arrows can run together with particles', () => {
+    mockEnv(false, { effectiveType: '4g' });
+    const w = new WeatherLayers({ ...opts, arrows: true });
+    expect(w.getState()).toMatchObject({ arrows: true, particles: { enabled: true } });
+  });
+});

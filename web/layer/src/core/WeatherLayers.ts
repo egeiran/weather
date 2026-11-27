@@ -29,6 +29,7 @@ import { TileStore } from './tileStore';
 import type { AttributionInfo, FetchFn, LayerId, Manifest, SourceInfo } from './types';
 
 export type ParticlesSetting = boolean | 'auto';
+export type ArrowsSetting = boolean | 'auto';
 
 export interface WeatherLayersOptions {
   /** URL of the directory that holds manifest.json (relative URLs are resolved by fetch). */
@@ -40,7 +41,11 @@ export interface WeatherLayersOptions {
   visible?: boolean;
   /** 'auto' (default): on unless prefers-reduced-motion or a slow/save-data connection. */
   particles?: ParticlesSetting;
-  arrows?: boolean;
+  /**
+   * Direction arrows. 'auto' (default): shown whenever particles are off (by choice, reduced
+   * motion or a slow connection) — arrows are much cheaper on the GPU.
+   */
+  arrows?: ArrowsSetting;
   thresholds?: Partial<Thresholds>;
   thresholdsEnabled?: boolean;
   thresholdStyle?: ThresholdStyle;
@@ -82,7 +87,9 @@ export interface WeatherState {
   /** Range of the active layer. */
   layerRange: TimeRange | null;
   particles: ParticlesState;
+  /** Whether arrows are drawn now (resolved from `arrowsSetting`). */
   arrows: boolean;
+  arrowsSetting: ArrowsSetting;
   thresholds: Thresholds;
   thresholdsEnabled: boolean;
   thresholdStyle: ThresholdStyle;
@@ -157,7 +164,7 @@ export class WeatherLayers {
       layer: options.layer ?? 'wind',
       visible: options.visible ?? true,
       particles: options.particles ?? 'auto',
-      arrows: options.arrows ?? true,
+      arrows: options.arrows ?? 'auto',
       thresholdsEnabled: options.thresholdsEnabled ?? true,
       thresholdStyle: options.thresholdStyle ?? 'hatch',
       rampFamily: options.rampFamily ?? 'calm',
@@ -286,7 +293,7 @@ export class WeatherLayers {
     this.particlesSetting = setting;
     this.changed();
   }
-  setArrows(on: boolean) {
+  setArrows(on: ArrowsSetting) {
     this.opts.arrows = on;
     this.changed();
   }
@@ -372,7 +379,8 @@ export class WeatherLayers {
       range: m ? manifestRange(m) : null,
       layerRange: layerInfo ? layerRange(layerInfo) : null,
       particles,
-      arrows: this.opts.arrows,
+      arrows: this.arrowsEnabled(particles.enabled),
+      arrowsSetting: this.opts.arrows,
       thresholds: this.thresholds,
       thresholdsEnabled: this.opts.thresholdsEnabled,
       thresholdStyle: this.opts.thresholdStyle,
@@ -451,6 +459,10 @@ export class WeatherLayers {
     return { setting, enabled: setting && (layer?.particles ?? true), reason: null };
   }
 
+  private arrowsEnabled(particlesOn: boolean): boolean {
+    return this.opts.arrows === 'auto' ? !particlesOn : this.opts.arrows;
+  }
+
   private currentResolved(): ResolvedTime | null {
     const layer = this.manifest?.layers[this.opts.layer];
     return layer ? resolveTime(layer, this.time) : null;
@@ -481,7 +493,7 @@ export class WeatherLayers {
       threshold,
       thresholdStyle: this.opts.thresholdStyle,
       theme: this.opts.theme,
-      arrows: this.opts.arrows,
+      arrows: this.arrowsEnabled(this.particlesState().enabled),
       particles: this.particlesState().enabled,
       tileZoomOffset: this.opts.tileZoomOffset,
     };

@@ -1,5 +1,6 @@
 export { WeatherLayers } from './core/WeatherLayers';
 export type {
+  ArrowsSetting,
   ParticlesSetting,
   ParticlesState,
   PointForecast,

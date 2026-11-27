@@ -48,8 +48,10 @@ Regression tests were added for 2, 3, 4, 6, 9, 11 and 13.
 
 ## Next steps
 
-- Owner's pick of look options (artifact "Værlagets utseende"); defaults now: calm ramp, hatching,
-  arrows + particles 'auto'. Switching is a prop/option change, no new data.
+- Whole coast locally: `make pipeline-coast` then `make dev-coast` (port 5174, own data dirs).
+
+- Look chosen by the owner: calm ramp, hatching, subtle Windy-like particles by default, arrows
+  as automatic fallback ('auto') or on demand (decisions 0008, 0009).
 - Wire into Fleet Tracker (docs/host-integration.md): serve `data/out` behind the API's auth,
   add `weather-layers` as a workspace package, mount `<WeatherOverlay>`, drive `time` from the host timeline.
 - Run the pipeline hourly on a host with ~2 GB RAM / 5 GB disk; set `WEATHER_LAYERS_USER_AGENT`.

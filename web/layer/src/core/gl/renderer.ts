@@ -60,14 +60,30 @@ interface Draw {
 }
 
 /** Which channel gives the motion magnitude for arrows/particles, and its scaling. */
-const VECTOR_SPEC: Record<LayerId, { mag: string; factor: number; maxMag: number }> = {
-  wind: { mag: 'wind_speed', factor: 1, maxMag: 25 },
-  gust: { mag: 'wind_speed', factor: 1, maxMag: 25 },
-  // Waves move at roughly the deep-water phase speed c = g T / 2 pi = 1.56 T (m/s).
-  wave_height: { mag: 'wave_period', factor: 1.56, maxMag: 28 },
-  wave_period: { mag: 'wave_period', factor: 1.56, maxMag: 28 },
-  swell: { mag: 'swell_period', factor: 1.56, maxMag: 28 },
-  current: { mag: 'current_speed', factor: 1, maxMag: 2.5 },
+const VECTOR_SPEC: Record<
+  LayerId,
+  { mag: string; factor: number; maxMag: number; particleSpeed: number; particleAlpha: number }
+> = {
+  wind: { mag: 'wind_speed', factor: 1, maxMag: 25, particleSpeed: 1, particleAlpha: 1 },
+  gust: { mag: 'wind_speed', factor: 1, maxMag: 25, particleSpeed: 1, particleAlpha: 1 },
+  // Waves move at roughly the deep-water phase speed c = g T / 2 pi = 1.56 T (m/s); their
+  // particles are slowed and dimmed so long-period swell does not dominate the map.
+  wave_height: {
+    mag: 'wave_period',
+    factor: 1.56,
+    maxMag: 28,
+    particleSpeed: 0.5,
+    particleAlpha: 0.6,
+  },
+  wave_period: {
+    mag: 'wave_period',
+    factor: 1.56,
+    maxMag: 28,
+    particleSpeed: 0.5,
+    particleAlpha: 0.6,
+  },
+  swell: { mag: 'swell_period', factor: 1.56, maxMag: 28, particleSpeed: 0.5, particleAlpha: 0.6 },
+  current: { mag: 'current_speed', factor: 1, maxMag: 2.5, particleSpeed: 1, particleAlpha: 1 },
 };
 
 const QUAD = new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]);
@@ -159,13 +175,11 @@ export class WeatherRenderer implements CustomLayerInterface {
       if (scene.arrows) this.updateAnchors(gl);
     }
     if (scene.particles && this.vectorReady && this.vectorTarget && this.particles) {
-      this.particles.step(
-        gl,
-        this.map,
-        this.vectorTarget,
-        scene.theme,
-        VECTOR_SPEC[scene.layerId].maxMag,
-      );
+      const spec = VECTOR_SPEC[scene.layerId];
+      this.particles.step(gl, this.map, this.vectorTarget, scene.theme, {
+        speed: spec.particleSpeed,
+        alpha: spec.particleAlpha,
+      });
       this.map.triggerRepaint(); // keep animating
     } else {
       this.particles?.reset();

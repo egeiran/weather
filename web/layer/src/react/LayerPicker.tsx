@@ -9,7 +9,8 @@ export function LayerPicker(props: {
   onLayer: (l: LayerId) => void;
   particles: ParticlesSetting;
   onParticles: (p: ParticlesSetting) => void;
-  arrows: boolean;
+  /** Shown state comes from `state.arrows`; toggling sets an explicit on/off. */
+  arrows?: boolean;
   onArrows: (on: boolean) => void;
 }) {
   const { t } = useWeatherI18n();
@@ -50,7 +51,7 @@ export function LayerPicker(props: {
         <label className="wl-toggle">
           <input
             type="checkbox"
-            checked={props.arrows}
+            checked={props.state?.arrows ?? props.arrows ?? false}
             onChange={(e) => props.onArrows(e.target.checked)}
           />
           <span>{t('arrows.toggle')}</span>

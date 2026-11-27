@@ -1,7 +1,10 @@
 # Developer entry points. Everything runs locally: uv for Python, npm for Node. No Docker.
 PIPE = uv run --project pipeline weather-layers
 
-.PHONY: setup pipeline pipeline-coast dev test lint typecheck format screenshots crosscheck clean-data
+.PHONY: setup pipeline pipeline-coast dev dev-coast test lint typecheck format screenshots crosscheck clean-data
+
+# The whole coast gets its own directories so it never overwrites the dev area.
+COAST_ENV = WEATHER_LAYERS_AREA=coast WEATHER_LAYERS_OUTPUT_DIR=data/coast/out WEATHER_LAYERS_STATE_DIR=data/coast/state WEATHER_LAYERS_CACHE_DIR=data/coast/cache
 
 setup:
 	uv sync --project pipeline --all-extras
@@ -12,10 +15,13 @@ pipeline:
 	$(PIPE) run --area dev
 
 pipeline-coast:
-	$(PIPE) run --area coast
+	$(COAST_ENV) $(PIPE) run
 
 dev:
 	npm run dev
+
+dev-coast:
+	$(COAST_ENV) npm run dev -w web/demo -- --port 5174 --bypass-lock
 
 test:
 	cd pipeline && uv run pytest

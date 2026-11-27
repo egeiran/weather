@@ -43,7 +43,8 @@ Useful URL parameters for the demo: `layer=wave_height|current|…`, `theme=dark
 
 | command | what it does |
 |---|---|
-| `make pipeline` / `make pipeline-coast` | build dev area / whole Norwegian coast (~5 min, ~1.9 GB download) |
+| `make pipeline` / `make pipeline-coast` | build dev area / whole Norwegian coast (~5 min, ~1.9 GB download; own dirs under `data/coast/`) |
+| `make dev-coast` | demo for the whole-coast data on http://localhost:5174 |
 | `uv run --project pipeline weather-layers status` | summary of the published manifest |
 | `uv run --project pipeline weather-layers validate` | validate `manifest.json` against `schema/` |
 | `make crosscheck` | compare published values with api.met.no → `docs/crosscheck.md` |

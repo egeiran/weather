@@ -44,7 +44,11 @@ void main() {
   vec2 pos = decodePos(texture(u_state, v_uv));
   vec4 d = texture(u_vectors, pos);
   vec2 vel = (d.rg - 0.5) * 2.0;
-  vec2 step = (vel.x * u_east + vel.y * u_north) * u_speed;
+  // Weak flows still draw visible streaks (Windy-like): screen speed ~ |v|^0.6.
+  float m = length(vel);
+  vec2 dir = m > 1e-4 ? vel / m : vec2(0.0);
+  vec2 eff = dir * pow(m, 0.6);
+  vec2 step = (eff.x * u_east + eff.y * u_north) * u_speed;
   vec2 np = pos + step;
   vec2 seed = (pos + v_uv) * u_seed;
   float drop = u_dropRate + length(vel) * u_dropBump;
@@ -80,7 +84,8 @@ in float v_mag;
 out vec4 fragColor;
 void main() {
   if (v_valid < 0.5) discard;
-  float a = u_color.a * (0.45 + 0.55 * clamp(v_mag * 2.0, 0.0, 1.0));
+  // Subtle: faint in calm areas, clearer where it blows (Windy-like).
+  float a = u_color.a * (0.25 + 0.75 * smoothstep(0.0, 0.55, v_mag));
   fragColor = vec4(u_color.rgb * a, a);
 }`;
 
@@ -88,13 +93,16 @@ const FADE_FS = /* glsl */ `#version 300 es
 precision mediump float;
 uniform sampler2D u_tex;
 uniform float u_opacity;
+uniform float u_decay;  // subtracted per frame (in alpha units)
 in vec2 v_uv;
 out vec4 fragColor;
 void main() {
-  vec4 c = texture(u_tex, v_uv);
-  // premultiplied: scale all channels; drop tiny values to avoid ghosting from 8-bit rounding
-  c *= u_opacity;
-  fragColor = c.a < 0.02 ? vec4(0.0) : c;
+  vec4 c = texture(u_tex, v_uv) * u_opacity;
+  // A pure multiply stalls at small 8-bit values (x * 0.96 rounds back to x) and leaves a haze;
+  // subtracting a little each frame guarantees the trail fades out completely.
+  float a = max(c.a - u_decay, 0.0);
+  c.rgb = c.a > 0.0 ? c.rgb * (a / c.a) : vec3(0.0);
+  fragColor = vec4(c.rgb, a);
 }`;
 
 export class ParticleSystem {
@@ -167,13 +175,13 @@ export class ParticleSystem {
     map: MapLibreMap,
     vectors: Target,
     theme: Theme,
-    _maxMag: number,
+    tuning: { speed: number; alpha: number } = { speed: 1, alpha: 1 },
   ) {
     const w = gl.drawingBufferWidth;
     const h = gl.drawingBufferHeight;
     const ratio = map.getPixelRatio();
     const cssArea = (w * h) / (ratio * ratio);
-    this.ensureState(Math.min(12000, Math.max(1500, cssArea / 130)));
+    this.ensureState(Math.min(12000, Math.max(1500, cssArea / 110)));
     this.ensureTrails(w, h);
     const camera = `${map.getCenter().toArray().join()}|${map.getZoom()}|${map.getBearing()}|${map.getPitch()}|${w}x${h}`;
     if (camera !== this.lastCamera) {
@@ -202,7 +210,7 @@ export class ParticleSystem {
     const aspect = w / h;
     gl.uniform2f(up.uniforms.u_east!, Math.cos(b) / aspect, Math.sin(b));
     gl.uniform2f(up.uniforms.u_north!, -Math.sin(b) / aspect, Math.cos(b));
-    gl.uniform1f(up.uniforms.u_speed!, 0.0016);
+    gl.uniform1f(up.uniforms.u_speed!, 0.0016 * tuning.speed);
     gl.uniform1f(up.uniforms.u_seed!, Math.random() + 0.5);
     gl.uniform1f(up.uniforms.u_dropRate!, 0.004);
     gl.uniform1f(up.uniforms.u_dropBump!, 0.01);
@@ -221,7 +229,8 @@ export class ParticleSystem {
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, trailA.tex);
     gl.uniform1i(fade.uniforms.u_tex!, 0);
-    gl.uniform1f(fade.uniforms.u_opacity!, 0.93);
+    gl.uniform1f(fade.uniforms.u_opacity!, 0.96);
+    gl.uniform1f(fade.uniforms.u_decay!, 1.5 / 255);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
     gl.enable(gl.BLEND);
@@ -235,9 +244,10 @@ export class ParticleSystem {
     gl.bindTexture(gl.TEXTURE_2D, vectors.tex);
     gl.uniform1i(dp.uniforms.u_vectors!, 1);
     gl.uniform1f(dp.uniforms.u_res!, this.res);
-    gl.uniform1f(dp.uniforms.u_pointSize!, 1.4 * ratio);
-    const color = theme === 'dark' ? [1, 1, 1, 0.7] : [0.06, 0.1, 0.16, 0.55];
-    gl.uniform4f(dp.uniforms.u_color!, color[0]!, color[1]!, color[2]!, color[3]!);
+    gl.uniform1f(dp.uniforms.u_pointSize!, Math.max(1, 0.9 * ratio));
+    // Thin, translucent streaks: white on dark maps, slate on light ones.
+    const color = theme === 'dark' ? [1, 1, 1, 0.5] : [0.1, 0.16, 0.23, 0.36];
+    gl.uniform4f(dp.uniforms.u_color!, color[0]!, color[1]!, color[2]!, color[3]! * tuning.alpha);
     gl.drawArrays(gl.POINTS, 0, this.res * this.res);
     this.trails = [trailB, trailA];
     this.frame++;
@@ -252,7 +262,8 @@ export class ParticleSystem {
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.trails[0].tex);
     gl.uniform1i(fade.uniforms.u_tex!, 0);
-    gl.uniform1f(fade.uniforms.u_opacity!, 1.0);
+    gl.uniform1f(fade.uniforms.u_opacity!, 0.9);
+    gl.uniform1f(fade.uniforms.u_decay!, 0);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);

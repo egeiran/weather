@@ -5,7 +5,12 @@ import type { Theme, ThresholdStyle } from '../core/gl/renderer';
 import type { RampFamily } from '../core/ramps';
 import type { Thresholds } from '../core/thresholds';
 import type { FetchFn, LayerId } from '../core/types';
-import type { ParticlesSetting, WeatherLayers, WeatherState } from '../core/WeatherLayers';
+import type {
+  ArrowsSetting,
+  ParticlesSetting,
+  WeatherLayers,
+  WeatherState,
+} from '../core/WeatherLayers';
 import { useWeatherLayers } from './useWeatherLayers';
 
 export interface WeatherOverlayProps {
@@ -15,7 +20,7 @@ export interface WeatherOverlayProps {
   time: Date;
   visible?: boolean;
   particles?: ParticlesSetting;
-  arrows?: boolean;
+  arrows?: ArrowsSetting;
   thresholds?: Thresholds;
   thresholdsEnabled?: boolean;
   thresholdStyle?: ThresholdStyle;
@@ -64,7 +69,7 @@ export function WeatherOverlay(props: WeatherOverlayProps) {
     () => controller?.setParticles(props.particles ?? 'auto'),
     [controller, props.particles],
   );
-  useEffect(() => controller?.setArrows(props.arrows ?? true), [controller, props.arrows]);
+  useEffect(() => controller?.setArrows(props.arrows ?? 'auto'), [controller, props.arrows]);
   useEffect(() => {
     if (props.thresholds) controller?.setThresholds(props.thresholds);
   }, [controller, props.thresholds]);
