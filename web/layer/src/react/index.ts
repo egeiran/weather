@@ -6,6 +6,8 @@ export { LayerPicker } from './LayerPicker';
 export { LayerRail } from './LayerRail';
 export { SettingsMenu } from './SettingsMenu';
 export { PointPin } from './PointPin';
+export { usePointQuery } from './usePointQuery';
+export type { LngLat } from './usePointQuery';
 export { LayerIcon } from './icons';
 export { Legend } from './Legend';
 export { StatusBar } from './StatusBar';

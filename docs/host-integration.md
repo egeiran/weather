@@ -143,6 +143,20 @@ export function WeatherOverlayForFleet({ time, layer, visible }: { time: Date; l
 the nearest-step values, and first threshold exceedance per threshold. It costs one request
 (the series chunk, ~7–10 KB gzip) and is cached per manifest. `PointPanel` renders it.
 
+For a pin that updates while it is dragged, use the hook and pass `query` straight through:
+
+```tsx
+const { point, forecast, loading, error, query, clear } = usePointQuery(controller);
+// <Map onClick={(e) => query(e.lngLat)}>
+//   {point && <PointPin lngLat={point} forecast={forecast} state={state} time={time}
+//                       onMove={query} onOpen={…} onClose={clear} />}
+```
+
+`PointPin` calls `onMove` once per animation frame while dragging and on release. A chunk covers
+~11 × 9 km, so most moves are answered from cache at once; when a new chunk is needed only the
+newest position is fetched (one request in flight), and the previous value stays on the pin
+until the new one arrives.
+
 ## 5. If this repo moves into the monorepo
 
 Copy, keeping paths relative to each other:

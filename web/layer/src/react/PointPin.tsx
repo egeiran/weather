@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { Marker } from 'react-map-gl/maplibre';
 
 import type { LayerId } from '../core/types';
@@ -20,12 +21,13 @@ const PIN: Record<LayerId, { value: string; dir: string; from: boolean }> = {
 /**
  * Windy-style draggable pin (react-map-gl Marker) with a bubble showing the active layer's
  * value and the direction of motion at the shown time. Click the bubble for the full panel.
+ * `onMove` fires while dragging (at most once per frame) and on release, so the value follows
+ * the pin; pair it with `usePointQuery`, which keeps the last value until the new one is there.
  */
 export function PointPin(props: {
   lngLat: { lng: number; lat: number };
   state: WeatherState | null;
   forecast: PointForecast | null;
-  loading: boolean;
   time: Date;
   /** Map bearing in degrees, so the arrow stays true on a rotated map. */
   bearing?: number;
@@ -41,13 +43,31 @@ export function PointPin(props: {
   const value = f ? valueAt(f.times, f.values[spec.value], props.time) : null;
   const dir = f ? valueAt(f.times, f.values[spec.dir], props.time) : null;
   const motion = dir === null ? null : (dir + (spec.from ? 180 : 0) - (props.bearing ?? 0)) % 360;
+  // Coalesce drag events to one update per animation frame.
+  const frame = useRef<number | null>(null);
+  const latest = useRef<{ lng: number; lat: number } | null>(null);
+  const onMove = props.onMove;
+  const dragTo = (lngLat: { lng: number; lat: number }) => {
+    latest.current = lngLat;
+    if (frame.current !== null) return;
+    frame.current = requestAnimationFrame(() => {
+      frame.current = null;
+      if (latest.current) onMove(latest.current);
+    });
+  };
+  const dropAt = (lngLat: { lng: number; lat: number }) => {
+    if (frame.current !== null) cancelAnimationFrame(frame.current);
+    frame.current = null;
+    onMove(lngLat);
+  };
   return (
     <Marker
       longitude={props.lngLat.lng}
       latitude={props.lngLat.lat}
       anchor="bottom"
       draggable
-      onDragEnd={(e) => props.onMove({ lng: e.lngLat.lng, lat: e.lngLat.lat })}
+      onDrag={(e) => dragTo({ lng: e.lngLat.lng, lat: e.lngLat.lat })}
+      onDragEnd={(e) => dropAt({ lng: e.lngLat.lng, lat: e.lngLat.lat })}
     >
       <div className="wl-pin" title={t('pin.drag')}>
         <div className="wl-pin-bubble">
@@ -57,14 +77,8 @@ export function PointPin(props: {
             onClick={props.onOpen}
             aria-label={t('pin.open')}
           >
-            {props.loading ? (
-              <span className="wl-spinner" />
-            ) : (
-              <>
-                <strong>{value === null ? '–' : formatValue(value, unit, intl)}</strong>
-                {motion !== null && value !== null && <DirectionArrow bearing={motion} />}
-              </>
-            )}
+            <strong>{value === null ? '–' : formatValue(value, unit, intl)}</strong>
+            {motion !== null && value !== null && <DirectionArrow bearing={motion} />}
           </button>
           <button
             type="button"

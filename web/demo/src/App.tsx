@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Map, { AttributionControl, NavigationControl, type MapRef } from 'react-map-gl/maplibre';
 import {
   DEFAULT_THRESHOLDS,
@@ -7,7 +7,6 @@ import {
   type LayerId,
   type Locale,
   type ParticlesSetting,
-  type PointForecast,
   type RampFamily,
   type Thresholds,
   type ThresholdStyle,
@@ -26,6 +25,7 @@ import {
   TimeSlider,
   WeatherI18nProvider,
   WeatherOverlay,
+  usePointQuery,
   useWeatherI18n,
 } from 'weather-layers/react';
 
@@ -81,11 +81,15 @@ function Demo(props: { locale: Locale; onLocale: (l: Locale) => void }) {
   );
   const [state, setState] = useState<WeatherState | null>(null);
   const [controller, setController] = useState<WeatherLayers | null>(null);
-  const [point, setPoint] = useState<{ lng: number; lat: number } | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
-  const [forecast, setForecast] = useState<PointForecast | null>(null);
-  const [pointLoading, setPointLoading] = useState(false);
-  const [pointError, setPointError] = useState(false);
+  const {
+    point,
+    forecast,
+    loading: pointLoading,
+    error: pointError,
+    query,
+    clear: clearPoint,
+  } = usePointQuery(controller);
   const [bearing, setBearing] = useState(0);
   const fitted = useRef(false);
 
@@ -103,24 +107,6 @@ function Demo(props: { locale: Locale; onLocale: (l: Locale) => void }) {
     fitted.current = true;
   }, [state?.manifest]);
 
-  const query = useCallback(
-    async (lngLat: { lng: number; lat: number }) => {
-      if (!controller) return;
-      setPoint(lngLat);
-      setPointLoading(true);
-      setPointError(false);
-      try {
-        setForecast(await controller.queryPoint(lngLat));
-      } catch {
-        setPointError(true);
-        setForecast(null);
-      } finally {
-        setPointLoading(false);
-      }
-    },
-    [controller],
-  );
-
   // ?panel=lat,lon places the pin and opens the details (used by screenshots).
   useEffect(() => {
     const p = params.get('panel');
@@ -130,7 +116,7 @@ function Demo(props: { locale: Locale; onLocale: (l: Locale) => void }) {
       // Deep link: fetch the point once data is ready (an external-system sync).
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setPanelOpen(params.get('details') !== '0');
-      void query({ lng: lng!, lat: lat! });
+      query({ lng: lng!, lat: lat! });
     }
   }, [controller, state?.manifest, point, query]);
 
@@ -146,8 +132,7 @@ function Demo(props: { locale: Locale; onLocale: (l: Locale) => void }) {
   const attribution = (state?.manifest?.attribution ?? []).map((a) => a.name).join(', ');
   const shownTime = state?.resolved?.time ?? time;
   const closePoint = () => {
-    setPoint(null);
-    setForecast(null);
+    clearPoint();
     setPanelOpen(false);
   };
 
@@ -159,7 +144,7 @@ function Demo(props: { locale: Locale; onLocale: (l: Locale) => void }) {
         mapStyle={theme === 'dark' ? STYLE_DARK : STYLE_LIGHT}
         style={{ position: 'absolute', inset: 0 }}
         attributionControl={false}
-        onClick={(e) => void query(e.lngLat)}
+        onClick={(e) => query({ lng: e.lngLat.lng, lat: e.lngLat.lat })}
         onRotate={(e) => setBearing(e.viewState.bearing)}
         cursor="crosshair"
       >
@@ -191,10 +176,9 @@ function Demo(props: { locale: Locale; onLocale: (l: Locale) => void }) {
             lngLat={point}
             state={state}
             forecast={forecast}
-            loading={pointLoading}
             time={shownTime}
             bearing={bearing}
-            onMove={(p) => void query(p)}
+            onMove={query}
             onOpen={() => setPanelOpen(true)}
             onClose={closePoint}
           />
