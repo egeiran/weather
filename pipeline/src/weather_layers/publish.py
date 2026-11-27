@@ -67,7 +67,14 @@ def process_source(
                 if force:
                     return False
                 meta = load_run_meta(storage, source.name, run_id)
-                return bool(meta and meta.get("area") == settings.area)
+                # Rebuild when the area or the source's configuration changed (e.g. ECMWF
+                # 0.25 -> 0.1 deg, or a product added/removed).
+                return bool(
+                    meta
+                    and meta.get("area") == settings.area
+                    and meta.get("model", source.model_name) == source.model_name
+                    and sorted(meta.get("products", {})) == sorted(source.products)
+                )
 
             run = source.latest_complete_run(http, is_built=is_built)
             info["run"] = run.run_id if run else None
@@ -84,7 +91,7 @@ def process_source(
             build_run(
                 source, run, subset, settings.area, area, storage, settings.state_dir, sea_mask=mask
             )
-        status.update(status="ok", latest_run=run.run_id)
+        status.update(status="ok", latest_run=run.run_id, _built=True)
     except Exception as exc:  # keep other sources going; the manifest keeps the old run
         log("source.error", level="error", source=source.name, error=f"{type(exc).__name__}: {exc}")
         status.update(status="error", message=f"{type(exc).__name__}: {exc}"[:300])
@@ -167,6 +174,7 @@ def _run_pipeline(settings: Settings, force: bool = False) -> dict:
     area = areas.get(settings.area)
     previous = current_manifest(storage)
     statuses: dict[str, dict] = {}
+    built_now: set[str] = set()  # sources (re)built in this run, possibly under the same run id
     cache_dir = settings.cache_dir if settings.cache_enabled else None
     with HttpClient(
         settings.user_agent,
@@ -181,6 +189,8 @@ def _run_pipeline(settings: Settings, force: bool = False) -> dict:
         for name in settings.sources:
             source = get_source(name, cache=settings.cache_enabled)
             statuses[name] = process_source(source, http, settings, storage, force)
+            if statuses[name].pop("_built", False):
+                built_now.add(name)
 
     # Publish set: newest complete build per source for this area.
     runs: dict[str, dict] = {}
@@ -213,12 +223,14 @@ def _run_pipeline(settings: Settings, force: bool = False) -> dict:
     prev_sources = (previous or {}).get("sources", {}) if same_area else {}
     prev_set = {n: s.get("run_id") for n, s in prev_sources.items() if "run_id" in s}
     new_set = {n: m["run_id"] for n, m in runs.items()}
-    # Republish when the run set changes, or when a source's health changes (e.g. ok -> stale),
-    # so clients can show "source down"; otherwise a run with nothing new is a no-op.
+    # Republish when the run set changes, when a run was rebuilt under the same id (a changed
+    # source configuration), or when a source's health changes (e.g. ok -> stale), so clients
+    # can show "source down"; otherwise a run with nothing new is a no-op.
     prev_status = {n: s.get("status") for n, s in prev_sources.items()}
     new_status = {n: statuses.get(n, {}).get("status") for n in runs}
     prev_status = {n: s for n, s in prev_status.items() if n in runs}
-    if same_area and prev_set == new_set and prev_status == new_status and not force:
+    unchanged = prev_set == new_set and prev_status == new_status and not built_now
+    if same_area and unchanged and not force:
         storage.clean_staging()
         log(
             "publish.noop",

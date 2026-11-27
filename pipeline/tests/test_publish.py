@@ -81,6 +81,19 @@ def test_second_run_is_noop(env):
     assert sources["meps"].fetches == 1
 
 
+def test_changed_source_configuration_rebuilds_the_same_run(env):
+    """E.g. ECMWF 0.25 -> 0.1 deg, or a product dropped: the built run no longer counts."""
+    settings, sources = env
+    publish.run_pipeline(settings)
+    assert sources["meps"].fetches == 1
+    sources["meps"].model_name = "fake MEPS, finer"
+    m = publish.run_pipeline(settings)
+    assert sources["meps"].fetches == 2
+    assert m["sources"]["meps"]["model"] == "fake MEPS, finer"
+    publish.run_pipeline(settings)  # and then it is a no-op again
+    assert sources["meps"].fetches == 2
+
+
 def test_new_run_publishes_and_retention_keeps_n(env):
     settings, sources = env
     meps = sources["meps"]

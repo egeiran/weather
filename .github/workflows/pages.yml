@@ -6,7 +6,7 @@ name: Demo on GitHub Pages
 on:
   schedule:
     # Just after new runs appear: MEPS (+2.5 h), WW3 00/12Z (+3.5 h), NorKyst 00Z (~06:40),
-    # ECMWF 00/12Z (~07:34 / 19:34 UTC).
+    # MyWaveWAM 3 km 18Z (~00:30), ECMWF 0.1° 00/12Z (~09:34 / 21:34 UTC).
     - cron: '10 4,10,16,22 * * *'
   workflow_dispatch:
   push:

@@ -14,8 +14,8 @@ from datetime import datetime
 # Product -> sources in priority order.
 PRIORITY: dict[str, tuple[str, ...]] = {
     "wind": ("meps", "ecmwf"),
-    "waves": ("wam", "ecmwf"),
-    "swell": ("wam", "ecmwf"),
+    "waves": ("wam", "wam3", "ecmwf"),
+    "swell": ("wam", "wam3", "ecmwf"),
     "current": ("norkyst",),
 }
 

@@ -18,6 +18,10 @@ def get_source(name: str, cache: bool = True) -> Source:
         from .wam import Wam
 
         return Wam(cache=cache)
+    if name == "wam3":
+        from .wam3 import Wam3
+
+        return Wam3(cache=cache)
     if name == "ecmwf":
         from .ecmwf import Ecmwf
 

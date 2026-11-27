@@ -15,7 +15,8 @@ polling is cheap while picking up new runs within an hour of their publication:
 | MEPS | 00/06/12/18Z used on the coast (every 3 h in dev) | nominal + ~2h30 |
 | WW3 4 km | 00/06/12/18Z | nominal + ~3h–3h30 |
 | NorKyst v3 | 00Z daily | ~06:40 |
-| ECMWF 0.25° | 00/12Z | ~07:34 / ~19:34 |
+| MyWaveWAM 3 km | 18Z (long run) | ~00:30 next day |
+| ECMWF 0.1° | 00/12Z | ~09:34 / ~21:34 |
 
 Examples (pick what the platform offers):
 
@@ -47,7 +48,7 @@ to `weather-data/` next to it and publishes everything to https://egeiran.github
 
 - The pipeline's `data/` (output + state) is kept in the Actions cache between runs, so each run
   only fetches model runs it has not seen (a run with nothing new is ~5 s of pipeline work).
-  If the cache is evicted, the next run simply fetches everything again (~1.5 GB).
+  If the cache is evicted, the next run simply fetches everything again (~2 GB).
 - Retention 1 keeps the site at roughly 250–300 MB and ~20k files (GitHub Pages limit: 1 GB).
 - The site is public and unauthenticated (open MET/ECMWF data, no secrets). The demo still sends
   its demo bearer token, which static hosting ignores.
@@ -94,8 +95,9 @@ to `weather-data/` next to it and publishes everything to https://egeiran.github
 Norway polygon (`norway`, measured 2026-11-27): 942 MB downloaded per full set of runs without
 the 800 m wave overlays, 3 min wall time, 156 MB public output (9,004 files), 371 MB state, peak RSS
 1.4 GB. With the 800 m overlays a wave run is 596 MB instead of 93 MB; taken at 00/12Z only
-(owner's choice) the daily total is **≈ 2.7 GB/day** (MEPS 0.53, WW3 + 800 m 1.2, NorKyst 0.55,
-ECMWF 0.34).
+(owner's choice) the daily total was ≈ 2.7 GB/day (MEPS 0.53, WW3 + 800 m 1.2, NorKyst 0.55,
+ECMWF 0.25° 0.34). With finer days 3–10 (decision 0012: ECMWF 0.1° wind/gusts ≈ 1.0 GB/day,
+MyWaveWAM 3 km ≈ 0.15 GB/day, no ECMWF waves) it is **≈ 3.5 GB/day**; public output +≈ 20 MB.
 The table below is the larger coast rectangle (`coast`) for comparison; see docs/performance.md.
 
 ### Coast rectangle

@@ -62,7 +62,8 @@ data/         (gitignored) out/ = published files, state/ = pipeline state, cach
 ## Conventions
 
 - Tiles: 256 px + 1 px buffer (258×258) RGB PNG, XYZ dirs per valid time. See `docs/contract.md`.
-- Sources: `meps` (MEPS 2.5 km), `wam` (= WW3 4 km; MyWaveWAM 4 km no longer exists), `norkyst` (NorKyst v3), `ecmwf` (0.25° open data).
+- Sources: `meps` (MEPS 2.5 km), `wam` (= WW3 4 km + MyWaveWAM 800 m overlays; MyWaveWAM 4 km no longer exists),
+  `norkyst` (NorKyst v3), `wam3` (MyWaveWAM 3 km, waves/swell days 3–10), `ecmwf` (0.1° open data; waves only as fallback).
 - Playwright screenshot paths must be anchored to the spec file (a relative path once wrote outside the repo).
 - Units on the wire = display units: m/s (wind, gust), m (waves), s (period), kn (current), °C.
 - Python: type hints, ruff (line 100). TS: strict, ESLint + Prettier, Vitest.

@@ -9,7 +9,7 @@ from pathlib import Path
 from . import __version__
 
 DEFAULT_USER_AGENT = f"weather-layers/{__version__} (+https://github.com/egeiran/weather)"
-ALL_SOURCES = ("meps", "wam", "norkyst", "ecmwf")
+ALL_SOURCES = ("meps", "wam", "norkyst", "wam3", "ecmwf")
 
 
 def _env(name: str, default: str) -> str:

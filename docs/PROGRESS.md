@@ -56,6 +56,14 @@ Regression tests were added for 2, 3, 4, 6, 9, 11 and 13.
 - Fjord waves: MyWaveWAM 800 m overlays on WW3 (00/12Z for large areas); ECMWF waves follow
   WW3's coastline (decision 0011). Windy ECMWF comparison in docs/validation.md.
 
+## Third round (2026-11-27)
+
+- Public demo on GitHub Pages (https://egeiran.github.io/weather/), updated four times a day.
+- Issues #1–#4: water level/tide, smooth time interpolation, uncertainty, more layers.
+- Finer days 3–10 (decision 0012): ECMWF 0.1° for wind/gusts, MyWaveWAM 3 km (`wam3`) for waves
+  and swell after WW3 — swell now reaches ~day 9; ECMWF waves only as fallback. ≈ 3.5 GB/day.
+- A source configuration change (model/products) rebuilds and republishes the same run id.
+
 ## Next steps
 
 - Norway locally: `make pipeline-norway` then `make dev-norway` (port 5175, own data dirs).
@@ -69,7 +77,7 @@ Regression tests were added for 2, 3, 4, 6, 9, 11 and 13.
 
 ## Known gaps
 
-- Swell has no data after +66 h (ECMWF open data has no partitions); currents end at +120 h.
-- Waves near the coast differ from api.met.no (they use WAM 800 m; we use WW3 4 km everywhere).
+- Waves/swell end at +234 h from the 18Z MyWaveWAM run (≈ 12 h before wind); currents end at +120 h.
+- Fjord waves (800 m grids) only for the first ~66 h; afterwards MyWaveWAM 3 km resolves wider fjords only.
 - Point series use a ~2.8 km lattice: values can differ from the colour field in strong gradients.
 - Globe projection not supported by the custom layer (mercator only).

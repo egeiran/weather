@@ -67,7 +67,7 @@ Validate with `uv run --project pipeline weather-layers validate`.
 }
 ```
 
-- **Stitching rule:** sources in priority order (wind: MEPS → ECMWF; waves/swell: WW3 → ECMWF;
+- **Stitching rule:** sources in priority order (wind: MEPS → ECMWF; waves/swell: WW3 → WAM3 (MyWaveWAM 3 km) → ECMWF;
   current: NorKyst only). A later source only covers times after the previous source's last time.
   Segments split where the step length changes, so the UI can show 1 h → 3 h → 6 h.
 - **Picking a tile:** find the segment containing the wanted time (nearest valid time within half

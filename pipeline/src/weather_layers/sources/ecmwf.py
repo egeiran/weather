@@ -33,9 +33,26 @@ from ..mercator import BBox
 from .base import Fields, Run, Source, Subset, run_id_of
 
 DEFAULT_BASE = "https://ecmwf-forecasts.s3.eu-central-1.amazonaws.com"
-RES = 0.25
-NI, NJ = 1440, 721
 LAST_STEP = 360  # completeness marker step for 00z/12z
+# Free grids: 0.1 deg (published 2 h after 0.25, from the same ~9 km run) and 0.25 deg.
+GRIDS = {"0p1": (0.1, 3600, 1801, 7000.0), "0p25": (0.25, 1440, 721, 14000.0)}
+RES, NI, NJ = 0.25, 1440, 721  # 0.25 deg constants (tests and fallbacks)
+
+
+def resolution() -> str:
+    """'0p1' (default, owner's choice, decision 0012) or '0p25'."""
+    r = os.environ.get("WEATHER_LAYERS_ECMWF_RESOLUTION", "0p1")
+    if r not in GRIDS:
+        raise ValueError(f"WEATHER_LAYERS_ECMWF_RESOLUTION must be one of {sorted(GRIDS)}")
+    return r
+
+
+def with_waves() -> bool:
+    """ECMWF waves are only a fallback when MyWaveWAM 3 km is in use (saves ~0.6 GB/day)."""
+    env = os.environ.get("WEATHER_LAYERS_ECMWF_WAVES", "auto")
+    if env == "auto":
+        return os.environ.get("WEATHER_LAYERS_WAM3", "1") in ("0", "false", "no", "off")
+    return env not in ("0", "false", "no", "off")
 
 
 def base_url() -> str:
@@ -56,10 +73,12 @@ def steps_00_12() -> list[int]:
     return list(range(0, 145, 3)) + list(range(150, LAST_STEP + 1, 6))
 
 
-def file_url(ref: datetime, stream: str, step: int, ext: str) -> str:
+def file_url(ref: datetime, stream: str, step: int, ext: str, resol: str | None = None) -> str:
     d = ref.strftime("%Y%m%d")
     hh = ref.strftime("%H")
-    return f"{base_url()}/{d}/{hh}z/ifs/0p25/{stream}/{d}{hh}0000-{step}h-{stream}-fc.{ext}"
+    r = resol or resolution()
+    suffix = "-fc-sfc" if r == "0p1" else "-fc"  # 0.1 deg files are split into -sfc / -pl
+    return f"{base_url()}/{d}/{hh}z/ifs/{r}/{stream}/{d}{hh}0000-{step}h-{stream}{suffix}.{ext}"
 
 
 def parse_index(text: str) -> dict[str, dict]:
@@ -75,16 +94,17 @@ def parse_index(text: str) -> dict[str, dict]:
     return out
 
 
-def decode_grib(data: bytes) -> np.ndarray:
+def decode_grib(data: bytes, grid: tuple[float, int, int] = (RES, NI, NJ)) -> np.ndarray:
     import eccodes
 
+    res, exp_ni, exp_nj = grid
     h = eccodes.codes_new_from_message(data)
     try:
         ni, nj = eccodes.codes_get(h, "Ni"), eccodes.codes_get(h, "Nj")
         lat0 = eccodes.codes_get(h, "latitudeOfFirstGridPointInDegrees")
         lon0 = eccodes.codes_get(h, "longitudeOfFirstGridPointInDegrees")
         d = eccodes.codes_get(h, "iDirectionIncrementInDegrees")
-        if (ni, nj) != (NI, NJ) or abs(lat0 - 90) > 1e-6 or abs(d - RES) > 1e-9:
+        if (ni, nj) != (exp_ni, exp_nj) or abs(lat0 - 90) > 1e-6 or abs(d - res) > 1e-9:
             raise ValueError(f"unexpected ECMWF grid {ni}x{nj} lat0={lat0} d={d}")
         if abs((lon0 % 360) - 180) > 1e-6:
             raise ValueError(f"unexpected first longitude {lon0}")
@@ -100,14 +120,15 @@ def decode_grib(data: bytes) -> np.ndarray:
 class Ecmwf(Source):
     name = "ecmwf"
     label = "ECMWF"
-    model_name = "ECMWF IFS open data 0.25°"
     attribution = "ECMWF"
     license = "CC BY 4.0"
-    products = ("wind", "waves")
-    nominal_resolution_m = 14000.0
 
     def __init__(self, cache: bool = True) -> None:
         self.cache = cache
+        self.resol = resolution()
+        self.res, self.ni, self.nj, self.nominal_resolution_m = GRIDS[self.resol]
+        self.model_name = f"ECMWF IFS open data {self.res}°"
+        self.products = ("wind", "waves") if with_waves() else ("wind",)
 
     def min_zoom(self) -> int:
         return 0
@@ -120,7 +141,7 @@ class Ecmwf(Source):
             run_id = run_id_of(ref)
             if is_built is not None and is_built(run_id):
                 return self._run(ref)
-            url = file_url(ref, "wave", LAST_STEP, "index")
+            url = file_url(ref, "wave", LAST_STEP, "index", self.resol)
             try:
                 r = http.get(url, allow_status=(200, 403, 404))
             except HttpError as exc:
@@ -150,17 +171,18 @@ class Ecmwf(Source):
 
     def fetch(self, http: HttpClient, run: Run, area: BBox) -> Subset:
         margin = 2
-        r0 = max(0, math.floor((90 - area.north) / RES) - margin)
-        r1 = min(NJ, math.ceil((90 - area.south) / RES) + 1 + margin)
-        c0 = max(0, math.floor((area.west + 180) / RES) - margin)
-        c1 = min(NI, math.ceil((area.east + 180) / RES) + 1 + margin)
+        res, ni, nj = self.res, self.ni, self.nj
+        r0 = max(0, math.floor((90 - area.north) / res) - margin)
+        r1 = min(nj, math.ceil((90 - area.south) / res) + 1 + margin)
+        c0 = max(0, math.floor((area.west + 180) / res) - margin)
+        c1 = min(ni, math.ceil((area.east + 180) / res) + 1 + margin)
         grid = RegularGrid(
             CRS.from_epsg(4326).to_wkt(),
-            -180 + c0 * RES,
-            RES,
+            -180 + c0 * res,
+            res,
             c1 - c0,
-            90 - r0 * RES,
-            -RES,
+            90 - r0 * res,
+            -res,
             r1 - r0,
             self.nominal_resolution_m,
         )
@@ -175,7 +197,7 @@ class Ecmwf(Source):
         }
 
         def get_field(ref, stream, step, rec) -> np.ndarray:
-            url = file_url(ref, stream, step, "grib2")
+            url = file_url(ref, stream, step, "grib2", self.resol)
             a, n = int(rec["_offset"]), int(rec["_length"])
             data = http.get(
                 url,
@@ -185,7 +207,7 @@ class Ecmwf(Source):
             ).content
             if len(data) != n:
                 raise RuntimeError(f"short range read for {url}: {len(data)} != {n}")
-            return decode_grib(data)[r0:r1, c0:c1]
+            return decode_grib(data, (res, ni, nj))[r0:r1, c0:c1]
 
         def one_step(step: int) -> Fields:
             ref = run.reference_time
@@ -202,10 +224,13 @@ class Ecmwf(Source):
                 "wind_u": ("oper", oper["10u"]),
                 "wind_v": ("oper", oper["10v"]),
                 "wind_gust": ("oper", oper[gust_param]),
-                "wave_height": ("wave", wave["swh"]),
-                "wave_period": ("wave", wave["pp1d"]),
-                "wave_from_direction": ("wave", wave["mwd"]),
             }
+            if "waves" in self.products:
+                jobs |= {
+                    "wave_height": ("wave", wave["swh"]),
+                    "wave_period": ("wave", wave["pp1d"]),
+                    "wave_from_direction": ("wave", wave["mwd"]),
+                }
             with ThreadPoolExecutor(max_workers=4) as pool:
                 futs = {
                     k: pool.submit(get_field, ref, s, step, rec) for k, (s, rec) in jobs.items()

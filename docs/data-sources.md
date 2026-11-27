@@ -9,7 +9,8 @@ keyless and need no account. The pipeline talks to them only through `pipeline/s
 | Wind, gusts (days 0–2.5) | `meps` | MEPS 2.5 km deterministic | Lambert conformal, 2.5 km | 1 h, +0…+66 h (67) | every 3 h; ~2h30 after nominal |
 | Waves, swell (days 0–2.5) | `wam` | **WAVEWATCH III 4 km** (replaces MyWaveWAM 4 km) | rotated lat/lon 0.04° (~4.4 km) | 1 h, +0…+66 h (67 of 73) | 00/06/12/18Z; ~3–3.5 h |
 | Current, sea temperature | `norkyst` | **NorKyst v3 800 m** (replaces NorKyst800 v2) | polar stereographic, 800 m | 1 h, +0…+120 h (121) | daily 00Z; complete ~06:40 UTC |
-| Wind, gusts, waves (days ~2–10) | `ecmwf` | ECMWF IFS open data 0.25° | regular lat/lon 0.25° | 3 h to +144 h, 6 h to +240 h | 00/12Z; ~07:34 / 19:34 UTC |
+| Waves, swell (days ~3–10) | `wam3` | MyWaveWAM 3 km (pan-Arctic) | rotated lat/lon 0.03° (~3 km) | 3 h (of 1 h), +48…+234 h | 18Z used; ~00:30 UTC |
+| Wind, gusts (days ~3–10) | `ecmwf` | ECMWF IFS open data **0.1°** (0.25° optional) | regular lat/lon 0.1° | 3 h to +144 h, 6 h to +240 h | 00/12Z; ~09:34 / 21:34 UTC |
 
 Attribution shown in the UI: **"MET Norway"** and **"ECMWF"** (plus the basemap's).
 
@@ -104,25 +105,43 @@ The NorKyst800 **v2** aggregate (`sea/norkyst800m/1h/aggregate_be`) is listed as
   files would be ~6× cheaper for the full grid (not implemented; see deployment.md).
 - **Verified against api.met.no oceanforecast:** identical values (direction within 0.05°) for 112 hours at Frøya.
 
-## ECMWF IFS open data 0.25° (days ~2–10)
+## MyWaveWAM 3 km (waves and swell, days ~3–10)
 
-- **Licence:** CC BY 4.0 + ECMWF terms. Real-time 9 km/0.1° is free only with a 2 h delay; real-time
-  native resolution needs a paid agreement, so we use 0.25° (interpolated from the same 9 km run).
-- **Files:** `<base>/YYYYMMDD/HHz/ifs/0p25/{oper|wave}/YYYYMMDDHH0000-<step>h-{oper|wave}-fc.grib2`
-  + `.index` (JSON lines with `param`, `levtype`, `_offset`, `_length`). Default base is the AWS
-  open-data mirror `https://ecmwf-forecasts.s3.eu-central-1.amazonaws.com` (`WEATHER_LAYERS_ECMWF_BASE`
-  can point at `https://data.ecmwf.int/forecasts`). Byte ranges per field; no spatial subsetting exists.
+- **Where:** `https://thredds.met.no/thredds/catalog/fou-hi/mywavewam3_latest/catalog.xml`,
+  files `MyWave_wam3_WAVE_<YYYYMMDD>T<HH>Z.nc` (last 3 days kept), OPeNDAP like the other MET models.
+- **Runs:** 06Z (133 hourly steps, to +114 h) and 18Z (253 hourly steps, frt−18 h … frt+234 h,
+  ready ≈ 6.5 h after nominal time). We use the newest **18Z** run (`MIN_STEPS` 240), from +48 h
+  (`WEATHER_LAYERS_WAM3_MIN_LEAD`), every 3 h (`WEATHER_LAYERS_WAM3_STEP_H`). Completeness: the
+  last step must have values.
+- **Grid:** rotated lat/lon (pole lon 140°, lat 25°), 0.03° (~3 km), 1995 × 2379, pan-Arctic; the
+  whole `norway` polygon lies inside it (checked). Land = `_FillValue` −9999999.
+- **Fields:** `hs`, `tp`, `thq` (mean direction **towards**), `hs_swell`, `tp_swell`, `thq_swell`
+  (towards) → we add 180° for "from". `forecast_reference_time` is in **days** since 1970.
+- **Payload (Norway polygon, 4 strips, 63 steps × 6 variables):** ≈ 153 MB per run, one run a day.
+- **Licence:** CC BY 4.0 (MET Norway). This is the model api.met.no uses for waves after ~+66 h.
+
+## ECMWF IFS open data 0.1° (wind and gusts, days ~3–10)
+
+- **Licence:** CC BY 4.0 + ECMWF terms. Open data comes at **0.1°** (since 2026-10-20, published
+  2 h after the 0.25°) and 0.25°, both interpolated from the same ~9 km run; the native grid needs
+  a paid agreement. Default 0.1° (`WEATHER_LAYERS_ECMWF_RESOLUTION=0p1|0p25`, decision 0012).
+- **Files:** `<base>/YYYYMMDD/HHz/ifs/0p1/{oper|wave}/YYYYMMDDHH0000-<step>h-{oper|wave}-fc-sfc.grib2`
+  (0.25°: `ifs/0p25/…-fc.grib2`) + `.index` (JSON lines with `param`, `levtype`, `_offset`,
+  `_length`). Default base is the AWS open-data mirror
+  `https://ecmwf-forecasts.s3.eu-central-1.amazonaws.com` (`WEATHER_LAYERS_ECMWF_BASE` can point at
+  `https://data.ecmwf.int/forecasts`). Byte ranges per field; no spatial subsetting exists.
 - **Runs/steps:** 00z/12z: 0–144 h every 3 h, 150–360 h every 6 h. 06z/18z stop at 144 h → unused.
-  A run is uploaded in one batch; the completeness marker is the last object (`…-360h-wave-fc.index`).
+  A run is uploaded in one batch; the completeness marker is the last object (`…-360h-wave-…index`).
+  0.1° release: 00z ≈ 09:34, 12z ≈ 21:34 UTC.
 - **Fields:** `10u`, `10v`; gust `10fg` (max of last **1 h** for steps ≤ 90), `10fg3` (last 3 h,
-  steps 93–144), `10fg` (last 6 h, ≥ 150) — the window is recorded in `run.json` notes;
-  waves `swh`, `pp1d` (peak period, like WW3 `tp`), `mwd` (**from**, degrees true).
-  **No swell/wind-sea partitions in open data** → the swell layer ends where WW3 ends (+66 h).
+  steps 93–144), `10fg` (last 6 h, ≥ 150) — the window is recorded in `run.json` notes.
+  Waves (`swh`, `pp1d`, `mwd` "from") only as a fallback when MyWaveWAM 3 km is switched off
+  (`WEATHER_LAYERS_ECMWF_WAVES=auto|1|0`); open data has no swell partitions.
 - **Decoding:** `eccodes` + `eccodeslib` wheels (Apache-2.0, bundles libaec/OpenJPEG) — no Homebrew.
-  Packing `grid_ccsds`; grid 1440×721, row 0 = 90°N, first column = 180° (→ lon −180…179.75).
-  Wave fields have a bitmap (land, big lakes) → NaN.
-- **Payload:** ~0.4–0.7 MB per global field; we fetch steps 48–240 (49 steps × 6 fields) ≈ **170 MB per run**,
-  2 runs/day, for any area size.
+  Packing `grid_ccsds`; 0.1° grid 3600×1801 (0.25°: 1440×721), row 0 = 90°N, first column = 180°
+  (→ lon −180…179.9). Wave fields have a bitmap (land, big lakes) → NaN.
+- **Payload:** 0.1° ≈ 3–3.7 MB per global wind/gust field; steps 48–240 (49 steps × 3 fields)
+  ≈ **504 MB per run**, 2 runs/day, for any area size (0.25° with waves was ≈ 170 MB).
 
 ## Area tuning
 
@@ -132,10 +151,10 @@ The NorKyst800 **v2** aggregate (`sea/norkyst800m/1h/aggregate_be`) is listed as
 
 ## Known gaps
 
-- **Swell after +66 h:** ECMWF open data has no partitions. The UI shows where the swell layer ends.
+- **Waves end ≈ 12 h before wind:** MyWaveWAM 3 km 18Z reaches +234 h; ECMWF wind +240 h.
 - **Currents after +120 h:** no free model beyond NorKyst v3 in this pipeline.
 - **Gust windows differ:** MEPS hourly gust vs ECMWF 1/3/6 h maxima — later ECMWF gusts are maxima over longer windows.
-- **Near the coast, waves differ from api.met.no**, which uses WAM 800 m where available (we use WW3 4 km everywhere).
+- **Fjords after +66 h:** the 800 m wave grids end at +66 h; MyWaveWAM 3 km resolves wider fjords only.
 
 ## Licences and credit
 

@@ -17,6 +17,7 @@
   --wl-src-meps: #4b7db2;
   --wl-src-wam: #3a8c96;
   --wl-src-norkyst: #5d8c58;
+  --wl-src-wam3: #2f6f86;
   --wl-src-ecmwf: #8569ad;
   font:
     13px/1.35 system-ui,
@@ -417,6 +418,9 @@
 }
 .wl-src-norkyst {
   background: var(--wl-src-norkyst);
+}
+.wl-src-wam3 {
+  background: var(--wl-src-wam3);
 }
 .wl-src-ecmwf {
   background: var(--wl-src-ecmwf);

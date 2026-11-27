@@ -9,7 +9,7 @@ No keys, no accounts, no Docker, no database.
 Two parts that meet through **files on disk**:
 
 1. **`pipeline/`** (Python): fetches open forecast subsets (MEPS 2.5 km, WAVEWATCH III 4 km,
-   NorKyst v3 800 m, ECMWF 0.25°), rotates and regrids them to Web Mercator and writes
+   NorKyst v3 800 m, MyWaveWAM 3 km, ECMWF 0.1°), rotates and regrids them to Web Mercator and writes
    value-encoded PNG tiles, merged point-series chunks and a versioned `manifest.json`.
 2. **`web/layer/`** (TypeScript): a framework-agnostic MapLibre GL JS 6 layer (GPU colour field,
    arrows, particles) plus a thin React adapter for react-map-gl 8 and ready UI components.
@@ -61,8 +61,8 @@ identifying name with a contact, as MET Norway's terms require.
 
 ## What you get
 
-- **Layers**: wind, gusts (MEPS → ECMWF), wave height, wave period (WW3 → ECMWF), swell (WW3, to
-  +66 h), current (NorKyst v3, to +120 h). One colour field at a time; arrows and particles show
+- **Layers**: wind, gusts (MEPS → ECMWF 0.1°), wave height, wave period and swell (WW3 + 800 m
+  fjord grids → MyWaveWAM 3 km, to ~day 9), current (NorKyst v3, to +120 h). One colour field at a time; arrows and particles show
   direction (wind and waves *from*, currents *to*, arrows point where the flow goes).
 - **Timeline** from now to ~10 days, stitched per layer: hourly MEPS/WW3/NorKyst, then ECMWF
   3-hourly and 6-hourly. The model, run (e.g. "MEPS 06Z", "ECMWF 00Z") and step length are always

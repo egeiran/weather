@@ -83,7 +83,7 @@ ECMWF = {
     "url": "https://www.ecmwf.int",
     "license": "CC BY 4.0",
 }
-ATTRIBUTION = {"meps": MET, "wam": MET, "norkyst": MET, "ecmwf": ECMWF}
+ATTRIBUTION = {"meps": MET, "wam": MET, "norkyst": MET, "wam3": MET, "ecmwf": ECMWF}
 
 
 def build_manifest(
@@ -149,7 +149,7 @@ def build_manifest(
     for name, st in source_status.items():
         sources.setdefault(name, {"label": name.upper(), **st})
     attributions = []
-    for name in ("meps", "wam", "norkyst", "ecmwf"):
+    for name in ("meps", "wam", "norkyst", "wam3", "ecmwf"):
         a = ATTRIBUTION[name]
         if name in runs and a not in attributions:
             attributions.append(a)
