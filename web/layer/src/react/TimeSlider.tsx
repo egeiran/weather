@@ -7,7 +7,10 @@ import { useWeatherI18n } from './i18n';
 
 const HOUR = 3600_000;
 
-/** Timeline from now to the end of the data, with model segments and step changes marked. */
+/**
+ * Timeline from now to the end of the data. The header shows the valid time, the model and
+ * run, the step length and where the layer's data ends; the track shows model segments.
+ */
 export function TimeSlider(props: {
   state: WeatherState | null;
   time: Date;
@@ -53,53 +56,66 @@ export function TimeSlider(props: {
         .filter((g) => g.e > g.s),
     [layer, min, max],
   );
-  // Day ticks at local midnight (Europe/Oslo).
   const days = useMemo(() => {
     const out: number[] = [];
-    const dayFmt = new Intl.DateTimeFormat('en-GB', {
+    const hourFmt = new Intl.DateTimeFormat('en-GB', {
       timeZone,
       hour: '2-digit',
       hourCycle: 'h23',
     });
     for (let x = Math.ceil(min / HOUR) * HOUR; x <= max; x += HOUR) {
-      if (dayFmt.format(new Date(x)) === '00') out.push(x);
+      if (hourFmt.format(new Date(x)) === '00') out.push(x);
     }
     return out;
   }, [min, max, timeZone]);
   const value = Math.min(max, Math.max(min, props.time.getTime()));
   const layerEnd = layer ? Date.parse(layer.end) : max;
+  const seg = s?.resolved?.segment;
+  const fmt = (d: Date | number) => formatTime(new Date(d), intl, timeZone);
 
   return (
-    <div className="wl-panel wl-time">
-      <div className="wl-time-controls">
-        <button
-          type="button"
-          className="wl-icon-button"
-          onClick={() => layer && onTime(stepTime(layer, props.time, -1) ?? props.time)}
-          aria-label={t('time.prev')}
-        >
-          ‹
-        </button>
-        <button
-          type="button"
-          className="wl-icon-button wl-play"
-          onClick={() => onPlaying(!playing)}
-          aria-label={playing ? t('time.pause') : t('time.play')}
-        >
-          {playing ? '❚❚' : '▶'}
-        </button>
-        <button
-          type="button"
-          className="wl-icon-button"
-          onClick={() => layer && onTime(stepTime(layer, props.time, 1) ?? props.time)}
-          aria-label={t('time.next')}
-        >
-          ›
-        </button>
-        <button type="button" className="wl-text-button" onClick={() => onTime(new Date(min))}>
+    <div className="wl-timeline">
+      <div className="wl-timeline-head">
+        <div className="wl-transport">
+          <button
+            type="button"
+            className="wl-round-btn wl-small-btn"
+            onClick={() => layer && onTime(stepTime(layer, props.time, -1) ?? props.time)}
+            aria-label={t('time.prev')}
+          >
+            ‹
+          </button>
+          <button
+            type="button"
+            className="wl-round-btn wl-play"
+            onClick={() => onPlaying(!playing)}
+            aria-label={playing ? t('time.pause') : t('time.play')}
+          >
+            {playing ? '❚❚' : '▶'}
+          </button>
+          <button
+            type="button"
+            className="wl-round-btn wl-small-btn"
+            onClick={() => layer && onTime(stepTime(layer, props.time, 1) ?? props.time)}
+            aria-label={t('time.next')}
+          >
+            ›
+          </button>
+        </div>
+        <output className="wl-time-now">{fmt(s?.resolved?.time ?? props.time)}</output>
+        <div className="wl-time-meta" role="status" aria-live="polite">
+          {seg ? (
+            <>
+              <span className="wl-model">{seg.label}</span>
+              {seg.step_hours ? <span>{t('time.step', { hours: seg.step_hours })}</span> : null}
+              {layer && <span>{t('time.dataUntil', { time: fmt(layerEnd) })}</span>}
+            </>
+          ) : null}
+          {s?.loading && <span className="wl-spinner" aria-label={t('status.loading')} />}
+        </div>
+        <button type="button" className="wl-chip-btn" onClick={() => onTime(new Date(min))}>
           {t('time.now')}
         </button>
-        <output className="wl-time-label">{formatTime(props.time, intl, timeZone)}</output>
       </div>
       <div className="wl-track">
         <div className="wl-segments" aria-hidden="true">
@@ -113,13 +129,7 @@ export function TimeSlider(props: {
               <span>{t('segment.short', { label: g.label, hours: g.step_hours ?? '–' })}</span>
             </div>
           ))}
-          {layerEnd < max && (
-            <div
-              className="wl-data-end"
-              style={{ left: pct(layerEnd) }}
-              title={t('status.dataEnds', { time: formatTime(new Date(layerEnd), intl, timeZone) })}
-            />
-          )}
+          {layerEnd < max && <div className="wl-data-end" style={{ left: pct(layerEnd) }} />}
         </div>
         <input
           className="wl-range"
@@ -129,7 +139,7 @@ export function TimeSlider(props: {
           step={HOUR}
           value={value}
           aria-label={t('time.slider')}
-          aria-valuetext={formatTime(new Date(value), intl, timeZone)}
+          aria-valuetext={fmt(value)}
           onChange={(e) => {
             onPlaying(false);
             onTime(new Date(Number(e.target.value)));

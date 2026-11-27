@@ -31,7 +31,7 @@ Validate with `uv run --project pipeline weather-layers validate`.
 |---|---|
 | `schema_version` | semver, currently `1.0.0` |
 | `generated_at` | when this manifest was written (UTC) |
-| `area` | `{name, bounds:[w,s,e,n]}` of the pipeline run |
+| `area` | `{name, bounds:[w,s,e,n], polygon?}` of the pipeline run; with a polygon, data outside it is no-data |
 | `tile` | `{size: 256, buffer: 1, format: "png", encoding: "rgb8-linear", nodata: 255, scheme: "xyz", time_format}` |
 | `attribution[]` | `{name, text, url, license}` to show in the UI (MET Norway, ECMWF) |
 | `sources{}` | per source: `label`, `model`, `run_id`, `reference_time`, `start`, `end`, `status`, `message`, `checked_at`. Status: `ok` newest run published; `pending` no newer complete run on the server yet (previous run shown, normal); `stale` the last fetch failed, previous run shown; `missing`/`error` nothing published for this source |

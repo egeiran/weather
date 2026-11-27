@@ -156,7 +156,11 @@ def build_manifest(
     return {
         "schema_version": SCHEMA_VERSION,
         "generated_at": iso(datetime.now(UTC)),
-        "area": {"name": area_name, "bounds": area.as_list()},
+        "area": {
+            "name": area_name,
+            "bounds": area.as_list(),
+            **({"polygon": [list(pt) for pt in area.polygon]} if area.polygon else {}),
+        },
         "tile": {
             "size": mercator.TILE_SIZE,
             "buffer": mercator.BUFFER,

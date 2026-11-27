@@ -56,7 +56,9 @@ def intersect(a: BBox, b: BBox) -> BBox | None:
     return BBox(w, s, e, n) if (e > w and n > s) else None
 
 
-def plan_tiles(grid: RegularGrid, bbox: BBox, zooms: range, lat_mid: float) -> list[TileJob]:
+def plan_tiles(
+    grid: RegularGrid, bbox: BBox, zooms: range, lat_mid: float, area: BBox | None = None
+) -> list[TileJob]:
     jobs = []
     for z in zooms:
         k = zoom_coarsen_factor(grid, z, lat_mid)
@@ -67,13 +69,10 @@ def plan_tiles(grid: RegularGrid, bbox: BBox, zooms: range, lat_mid: float) -> l
                 lon, lat = mercator.tile_pixel_lonlat(z, tx, ty)
                 lon2, lat2 = np.meshgrid(lon, lat)
                 sampler = Sampler.build(cgrid, lon2, lat2)
-                # Clip to the area so every source shows the same lat/lon rectangle.
-                sampler.inside &= (
-                    (lon2 >= bbox.west)
-                    & (lon2 <= bbox.east)
-                    & (lat2 >= bbox.south)
-                    & (lat2 <= bbox.north)
-                )
+                # Clip to the area (box and polygon) so every source covers the same shape.
+                sampler.inside &= bbox.contains(lon2, lat2)
+                if area is not None and area.polygon is not None:
+                    sampler.inside &= area.contains(lon2, lat2)
                 jobs.append(TileJob(z, tx, ty, k, sampler))
     return jobs
 
@@ -109,7 +108,7 @@ def build_run(
     lat_mid = (domain.south + domain.north) / 2
     zooms = range(source.min_zoom(), source.max_zoom() + 1)
     with step("plan", source=source.name, run=run.run_id) as info:
-        jobs = plan_tiles(grid, domain, zooms, lat_mid)
+        jobs = plan_tiles(grid, domain, zooms, lat_mid, area)
         info["tiles_per_step_per_product"] = len(jobs)
         info["zooms"] = [zooms.start, zooms.stop - 1]
         info["coarsen"] = sorted({(j.z, j.k) for j in jobs})
@@ -117,6 +116,7 @@ def build_run(
     window = SeriesWindow.for_area(area)
     slon, slat = window.lonlat()
     series_sampler = Sampler.build(grid, slon, slat)
+    series_sampler.inside &= area.contains(slon, slat)
     ntimes = len(subset.times)
     series_arrays = {
         p: np.lib.format.open_memmap(

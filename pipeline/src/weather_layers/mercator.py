@@ -21,13 +21,45 @@ EARTH_CIRCUMFERENCE_M = 2 * math.pi * 6378137.0
 
 @dataclass(frozen=True)
 class BBox:
+    """A lon/lat box, optionally narrowed to a polygon inside it (an area of any shape).
+
+    Grid windows and tile ranges use the box; masking (what is fetched in strips, which tile
+    pixels and series cells get data) uses the polygon when there is one.
+    """
+
     west: float
     south: float
     east: float
     north: float
+    polygon: tuple[tuple[float, float], ...] | None = None  # (lon, lat) ring
 
     def as_list(self) -> list[float]:
         return [self.west, self.south, self.east, self.north]
+
+    def contains(self, lon: np.ndarray, lat: np.ndarray) -> np.ndarray:
+        lon = np.asarray(lon, dtype=np.float64)
+        lat = np.asarray(lat, dtype=np.float64)
+        inside = (lon >= self.west) & (lon <= self.east) & (lat >= self.south) & (lat <= self.north)
+        if self.polygon is not None:
+            inside &= points_in_polygon(lon, lat, self.polygon)
+        return inside
+
+
+def points_in_polygon(lon: np.ndarray, lat: np.ndarray, ring) -> np.ndarray:
+    """Vectorised even-odd ray casting (lon/lat treated as planar; fine for our scales)."""
+    x = np.asarray(lon, dtype=np.float64)
+    y = np.asarray(lat, dtype=np.float64)
+    inside = np.zeros(np.broadcast(x, y).shape, dtype=bool)
+    pts = list(ring)
+    if pts[0] != pts[-1]:
+        pts.append(pts[0])
+    for (x1, y1), (x2, y2) in zip(pts[:-1], pts[1:], strict=False):
+        if y1 == y2:
+            continue
+        crosses = (y1 > y) != (y2 > y)
+        xin = x1 + (y - y1) * (x2 - x1) / (y2 - y1)
+        inside ^= crosses & (x < xin)
+    return inside
 
 
 def lonlat_to_mercator01(lon: np.ndarray | float, lat: np.ndarray | float):

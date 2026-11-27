@@ -43,8 +43,8 @@ Useful URL parameters for the demo: `layer=wave_height|current|…`, `theme=dark
 
 | command | what it does |
 |---|---|
-| `make pipeline` / `make pipeline-coast` | build dev area / whole Norwegian coast (~5 min, ~1.9 GB download; own dirs under `data/coast/`) |
-| `make dev-coast` | demo for the whole-coast data on http://localhost:5174 |
+| `make pipeline-norway` / `make dev-norway` | build Norway + its sea (polygon, ~3 min, ~0.95 GB) into `data/norway/`; demo on http://localhost:5175 |
+| `make pipeline-coast` / `make dev-coast` | the same for the plain coast rectangle (`data/coast/`, port 5174) |
 | `uv run --project pipeline weather-layers status` | summary of the published manifest |
 | `uv run --project pipeline weather-layers validate` | validate `manifest.json` against `schema/` |
 | `make crosscheck` | compare published values with api.met.no → `docs/crosscheck.md` |
@@ -69,6 +69,9 @@ identifying name with a contact, as MET Norway's terms require.
   current, sea temperature at the chosen time, a chart over the whole timeline and the first time
   each threshold is exceeded — one request (~7–11 KB).
 - **Thresholds** (placeholders: waves 2.0 m, gusts 15 m/s, current 1.0 kn) marked on the map.
+- **Map UI** (Windy-style): layer rail, slim legend, settings popover, timeline with model/run/valid
+  time, a draggable pin showing the active value and direction, and a crisp coastline above the field.
+- **Areas** of any shape: `dev`, `coast`, `norway` (polygon), `w,s,e,n` or a GeoJSON polygon.
 - **Units** m/s, m, s, kn. **Languages** nb (default) and en, from message files.
 - Host hooks: injectable `fetch` + base URL, `setTime`/`setActiveLayer`/`setVisible`/
   `setParticles`/`setThresholds`, state events with the available time range.
@@ -79,7 +82,7 @@ identifying name with a contact, as MET Norway's terms require.
 |---|---|
 | Cross-check vs api.met.no (tiles at MET's grid point) | wind 0.05 m/s / 0.9°, gust 0.06 m/s, current 0.05 kn / 2.9°, sea temperature 0.04 °C (mean abs diff); waves 0.14 m / 10° (MET uses WAM 800 m here, we use WW3 4 km) — [docs/crosscheck.md](docs/crosscheck.md) |
 | Performance (whole coast, 1440×900 @2x) | first view ≤ 398 KB, step change ≤ 177 KB, click 1 request, 60 fps with particles — [docs/performance.md](docs/performance.md) |
-| Full-coast run | 4 min 42 s, 1.87 GB downloaded, 268 MB public output (17.6k files); no-op rerun 4.3 s |
+| Norway run (polygon) | 3 min, 942 MB downloaded, 156 MB public output (9.0k files), ≈ 1.8 GB/day; rectangle: 1.87 GB; no-op rerun ~4 s |
 
 ## Docs
 

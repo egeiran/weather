@@ -33,6 +33,19 @@
         },
         "bounds": {
           "$ref": "#/$defs/bbox"
+        },
+        "polygon": {
+          "type": "array",
+          "description": "Optional [lon, lat] ring when the area is a polygon; data outside it is no-data.",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "minItems": 4
         }
       }
     },

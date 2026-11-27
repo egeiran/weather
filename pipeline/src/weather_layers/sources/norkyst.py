@@ -23,11 +23,18 @@ from ..http import HttpClient, HttpError
 from ..log import log
 from ..mercator import BBox
 from .base import Fields, Run, Source, Subset, run_id_of
-from .projected import cf_crs, epoch_seconds_to_dt, index_window, regular_axis
+from .projected import (
+    band_stats,
+    cf_crs,
+    epoch_seconds_to_dt,
+    index_window,
+    plan_bands,
+    regular_axis,
+    steps_per_request,
+)
 
 URL = "https://thredds.met.no/thredds/dodsC/fou-hi/norkystv3_800m_m00_be"
 STEPS = 121
-MAX_REQUEST_BYTES = 24 * 1024 * 1024
 
 
 def _stride(cells: int) -> int:
@@ -106,27 +113,37 @@ class NorKyst(Source):
         )
         t0 = run.extra["t0"]
         times = run.valid_times
-        step_bytes = grid.nx * grid.ny * 4
-        chunk = max(1, min(len(times), MAX_REQUEST_BYTES // step_bytes))
+        # NorKyst is chunked in 24-row blocks, so thin strips cost the server little.
+        bands = plan_bands(grid, area, band_rows=48)
+        chunk = min(len(times), steps_per_request(bands))
         notes = {
             "index_window": [j0, j1, i0, i1],
             "stride": s,
             "steps_per_request": chunk,
             "aggregate_time_index0": t0,
+            **band_stats(grid, bands),
         }
 
         def steps() -> Iterator[tuple[int, Fields]]:
             for a in range(0, len(times), chunk):
-                b = min(len(times), a + chunk) - 1
-                sl = f"[{t0 + a}:{t0 + b}][0][{j0}:{s}:{j1 - 1}][{i0}:{s}:{i1 - 1}]"
+                b_ = min(len(times), a + chunk) - 1
+                tsl = f"[{t0 + a}:{t0 + b_}]"
+                check = epoch_seconds_to_dt(ds.fetch({"time": tsl})["time"])
+                if check != times[a : b_ + 1]:
+                    raise RuntimeError("NorKyst aggregate changed during fetch")
                 got = {}
                 for var in ("u_eastward", "v_northward", "temperature"):
-                    res = ds.fetch({var: sl, "time": f"[{t0 + a}:{t0 + b}]"})
-                    check = epoch_seconds_to_dt(res["time"])
-                    if check != times[a : b + 1]:
-                        raise RuntimeError("NorKyst aggregate changed during fetch")
-                    got[var] = ds.unpack(var, res[var])[:, 0]
-                for k in range(b - a + 1):
+                    arr = np.full((b_ - a + 1, grid.ny, grid.nx), np.nan, dtype=np.float32)
+                    for b in bands:
+                        sl = (
+                            f"{tsl}[0][{j0 + s * b.r0}:{s}:{j0 + s * (b.r1 - 1)}]"
+                            f"[{i0 + s * b.c0}:{s}:{i0 + s * (b.c1 - 1)}]"
+                        )
+                        arr[:, b.r0 : b.r1, b.c0 : b.c1] = ds.unpack(var, ds.fetch({var: sl})[var])[
+                            :, 0
+                        ]
+                    got[var] = arr
+                for k in range(b_ - a + 1):
                     yield (
                         a + k,
                         {

@@ -1,10 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Map, {
-  AttributionControl,
-  Marker,
-  NavigationControl,
-  type MapRef,
-} from 'react-map-gl/maplibre';
+import Map, { AttributionControl, NavigationControl, type MapRef } from 'react-map-gl/maplibre';
 import {
   DEFAULT_THRESHOLDS,
   type ArrowsSetting,
@@ -21,9 +16,11 @@ import {
 } from 'weather-layers';
 import {
   Attribution,
-  LayerPicker,
+  LayerRail,
   Legend,
   PointPanel,
+  PointPin,
+  SettingsMenu,
   StatusBar,
   ThresholdControls,
   TimeSlider,
@@ -84,11 +81,12 @@ function Demo(props: { locale: Locale; onLocale: (l: Locale) => void }) {
   );
   const [state, setState] = useState<WeatherState | null>(null);
   const [controller, setController] = useState<WeatherLayers | null>(null);
-  const [settingsOpen, setSettingsOpen] = useState(params.get('settings') === '1');
   const [point, setPoint] = useState<{ lng: number; lat: number } | null>(null);
+  const [panelOpen, setPanelOpen] = useState(false);
   const [forecast, setForecast] = useState<PointForecast | null>(null);
   const [pointLoading, setPointLoading] = useState(false);
   const [pointError, setPointError] = useState(false);
+  const [bearing, setBearing] = useState(0);
   const fitted = useRef(false);
 
   // Fit the data area once the manifest is known (unless the URL pins a view).
@@ -123,14 +121,17 @@ function Demo(props: { locale: Locale; onLocale: (l: Locale) => void }) {
     [controller],
   );
 
-  // ?panel=lat,lon opens the point panel (used by screenshots).
+  // ?panel=lat,lon places the pin and opens the details (used by screenshots).
   useEffect(() => {
     const p = params.get('panel');
     if (!p || !controller || !state?.manifest || point) return;
     const [lat, lng] = p.split(',').map(Number);
-    // Deep link: fetch the point once data is ready (an external-system sync, not derived state).
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (Number.isFinite(lat) && Number.isFinite(lng)) void query({ lng: lng!, lat: lat! });
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      // Deep link: fetch the point once data is ready (an external-system sync).
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setPanelOpen(params.get('details') !== '0');
+      void query({ lng: lng!, lat: lat! });
+    }
   }, [controller, state?.manifest, point, query]);
 
   const view = params.get('view')?.split(',').map(Number);
@@ -143,6 +144,12 @@ function Demo(props: { locale: Locale; onLocale: (l: Locale) => void }) {
     [],
   );
   const attribution = (state?.manifest?.attribution ?? []).map((a) => a.name).join(', ');
+  const shownTime = state?.resolved?.time ?? time;
+  const closePoint = () => {
+    setPoint(null);
+    setForecast(null);
+    setPanelOpen(false);
+  };
 
   return (
     <div className="wl-root demo" data-theme={theme}>
@@ -153,6 +160,7 @@ function Demo(props: { locale: Locale; onLocale: (l: Locale) => void }) {
         style={{ position: 'absolute', inset: 0 }}
         attributionControl={false}
         onClick={(e) => void query(e.lngLat)}
+        onRotate={(e) => setBearing(e.viewState.bearing)}
         cursor="crosshair"
       >
         <WeatherOverlay
@@ -179,105 +187,125 @@ function Demo(props: { locale: Locale; onLocale: (l: Locale) => void }) {
           }
         />
         {point && (
-          <Marker longitude={point.lng} latitude={point.lat}>
-            <div className="demo-marker" />
-          </Marker>
+          <PointPin
+            lngLat={point}
+            state={state}
+            forecast={forecast}
+            loading={pointLoading}
+            time={shownTime}
+            bearing={bearing}
+            onMove={(p) => void query(p)}
+            onOpen={() => setPanelOpen(true)}
+            onClose={closePoint}
+          />
         )}
       </Map>
 
       <div className="demo-top-left">
-        <LayerPicker
-          state={state}
-          layer={layer}
-          onLayer={setLayer}
-          particles={particles}
-          onParticles={setParticles}
-          onArrows={setArrows}
-        />
-        <div className="wl-panel demo-buttons">
-          <button
-            type="button"
-            className="wl-text-button"
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-          >
-            {theme === 'dark' ? t('theme.light') : t('theme.dark')}
-          </button>
-          <button
-            type="button"
-            className="wl-text-button"
-            onClick={() => props.onLocale(props.locale === 'nb' ? 'en' : 'nb')}
-          >
-            {t('lang.switch')}
-          </button>
-          <button
-            type="button"
-            className="wl-text-button"
-            aria-expanded={settingsOpen}
-            onClick={() => setSettingsOpen(!settingsOpen)}
-          >
-            {t('panel.settings')}
-          </button>
-        </div>
-        {settingsOpen && (
-          <div className="demo-settings">
-            <ThresholdControls
-              thresholds={thresholds}
-              enabled={thresholdsEnabled}
-              onChange={setThresholds}
-              onEnabled={setThresholdsEnabled}
+        <Legend state={state} />
+        <StatusBar state={state} />
+        {point && panelOpen && (
+          <div className="demo-point">
+            <PointPanel
+              state={state}
+              forecast={forecast}
+              loading={pointLoading}
+              error={pointError}
+              time={shownTime}
+              onClose={() => setPanelOpen(false)}
             />
-            <div className="wl-panel">
-              <label className="wl-threshold-row">
-                <span>{t('ramp.family')}</span>
-                <select
-                  value={rampFamily}
-                  onChange={(e) => setRampFamily(e.target.value as RampFamily)}
-                >
-                  {RAMP_FAMILIES.map((f) => (
-                    <option key={f} value={f}>
-                      {t(`ramp.${f}`)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="wl-threshold-row">
-                <span>{t('thresholdStyle.title')}</span>
-                <select
-                  value={thresholdStyle}
-                  onChange={(e) => setThresholdStyle(e.target.value as ThresholdStyle)}
-                >
-                  {(['hatch', 'tint', 'contour'] as const).map((s) => (
-                    <option key={s} value={s}>
-                      {t(`thresholdStyle.${s}`)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
           </div>
         )}
       </div>
 
       <div className="demo-top-right">
-        <Legend state={state} />
-        <StatusBar state={state} />
+        <SettingsMenu
+          state={state}
+          particles={particles}
+          onParticles={setParticles}
+          arrows={arrows}
+          onArrows={setArrows}
+          defaultOpen={params.get('settings') === '1'}
+        >
+          <ThresholdControls
+            thresholds={thresholds}
+            enabled={thresholdsEnabled}
+            onChange={setThresholds}
+            onEnabled={setThresholdsEnabled}
+          />
+          <section>
+            <h3>{t('settings.appearance')}</h3>
+            <label className="wl-field">
+              <span>{t('ramp.family')}</span>
+              <select
+                value={rampFamily}
+                onChange={(e) => setRampFamily(e.target.value as RampFamily)}
+              >
+                {RAMP_FAMILIES.map((f) => (
+                  <option key={f} value={f}>
+                    {t(`ramp.${f}`)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="wl-field">
+              <span>{t('thresholdStyle.title')}</span>
+              <select
+                value={thresholdStyle}
+                onChange={(e) => setThresholdStyle(e.target.value as ThresholdStyle)}
+              >
+                {(['hatch', 'tint', 'contour'] as const).map((s) => (
+                  <option key={s} value={s}>
+                    {t(`thresholdStyle.${s}`)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="wl-field">
+              <span>{t('settings.map')}</span>
+              <div className="wl-segmented">
+                <button
+                  type="button"
+                  aria-pressed={theme === 'light'}
+                  onClick={() => setTheme('light')}
+                >
+                  {t('theme.light')}
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={theme === 'dark'}
+                  onClick={() => setTheme('dark')}
+                >
+                  {t('theme.dark')}
+                </button>
+              </div>
+            </div>
+            <div className="wl-field">
+              <span>{t('settings.language')}</span>
+              <div className="wl-segmented">
+                <button
+                  type="button"
+                  aria-pressed={props.locale === 'nb'}
+                  onClick={() => props.onLocale('nb')}
+                >
+                  {t('lang.nb')}
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={props.locale === 'en'}
+                  onClick={() => props.onLocale('en')}
+                >
+                  {t('lang.en')}
+                </button>
+              </div>
+            </div>
+          </section>
+        </SettingsMenu>
       </div>
 
-      {point && (
-        <div className="demo-point">
-          <PointPanel
-            state={state}
-            forecast={forecast}
-            loading={pointLoading}
-            error={pointError}
-            time={state?.resolved?.time ?? time}
-            onClose={() => {
-              setPoint(null);
-              setForecast(null);
-            }}
-          />
-        </div>
-      )}
+      <div className="demo-rail">
+        <LayerRail state={state} layer={layer} onLayer={setLayer} />
+      </div>
 
       <div className="demo-bottom">
         <TimeSlider

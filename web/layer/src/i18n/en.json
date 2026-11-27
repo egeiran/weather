@@ -81,5 +81,20 @@
   "thresholdStyle.tint": "Tint",
   "thresholdStyle.contour": "Contour only",
   "segment.short": "{label} · {hours} h",
-  "compass.points": "N,NNE,NE,ENE,E,ESE,SE,SSE,S,SSW,SW,WSW,W,WNW,NW,NNW"
+  "compass.points": "N,NNE,NE,ENE,E,ESE,SE,SSE,S,SSW,SW,WSW,W,WNW,NW,NNW",
+  "settings.title": "Settings",
+  "settings.open": "Open settings",
+  "settings.close": "Close settings",
+  "settings.motion": "Motion",
+  "settings.appearance": "Appearance",
+  "settings.map": "Map",
+  "settings.language": "Language",
+  "pin.open": "Show details for this point",
+  "pin.close": "Remove point",
+  "pin.drag": "Drag to move the point",
+  "legend.overThreshold": "over threshold",
+  "time.dataUntil": "data until {time}",
+  "layers.rail": "Choose map layer",
+  "lang.nb": "Norsk",
+  "lang.en": "English"
 }

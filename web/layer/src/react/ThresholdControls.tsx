@@ -7,6 +7,7 @@ const FIELDS: { key: ThresholdLayer; step: number; min: number; max: number }[] 
   { key: 'current', step: 0.1, min: 0, max: 8 },
 ];
 
+/** Threshold inputs; a plain section so it fits in the settings popover or any host panel. */
 export function ThresholdControls(props: {
   thresholds: Thresholds;
   enabled: boolean;
@@ -15,9 +16,9 @@ export function ThresholdControls(props: {
 }) {
   const { t } = useWeatherI18n();
   return (
-    <fieldset className="wl-panel wl-thresholds">
-      <legend>{t('thresholds.title')}</legend>
-      <label className="wl-toggle">
+    <section className="wl-thresholds">
+      <h3>{t('thresholds.title')}</h3>
+      <label className="wl-switch">
         <input
           type="checkbox"
           checked={props.enabled}
@@ -26,7 +27,7 @@ export function ThresholdControls(props: {
         <span>{t('thresholds.enabled')}</span>
       </label>
       {FIELDS.map((f) => (
-        <label key={f.key} className="wl-threshold-row">
+        <label key={f.key} className="wl-field">
           <span>{t(`thresholds.${f.key}`)}</span>
           <input
             type="number"
@@ -34,6 +35,7 @@ export function ThresholdControls(props: {
             step={f.step}
             min={f.min}
             max={f.max}
+            disabled={!props.enabled}
             value={props.thresholds[f.key] ?? ''}
             onChange={(e) => {
               const v = e.target.value === '' ? null : Number(e.target.value);
@@ -46,6 +48,6 @@ export function ThresholdControls(props: {
         </label>
       ))}
       <p className="wl-muted wl-small">{t('thresholds.placeholder')}</p>
-    </fieldset>
+    </section>
   );
 }

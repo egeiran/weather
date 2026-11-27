@@ -21,7 +21,7 @@ Examples (pick what the platform offers):
 
 ```cron
 # crontab: minute 10 of every hour
-10 * * * * cd /opt/weather-layers && WEATHER_LAYERS_AREA=coast WEATHER_LAYERS_CACHE=0 /usr/local/bin/uv run --project pipeline weather-layers run >> /var/log/weather-layers.jsonl 2>&1
+10 * * * * cd /opt/weather-layers && WEATHER_LAYERS_AREA=norway WEATHER_LAYERS_CACHE=0 /usr/local/bin/uv run --project pipeline weather-layers run >> /var/log/weather-layers.jsonl 2>&1
 ```
 
 ```ini
@@ -48,7 +48,7 @@ run logs `pipeline.locked` and exits 0).
 | `WEATHER_LAYERS_CACHE` | `auto` | `auto` = on for the dev area only; production fetches each run once, so leave it off |
 | `WEATHER_LAYERS_CACHE_MAX_AGE_H` | `48` | cached raw responses older than this are deleted at the start of each run |
 | `WEATHER_LAYERS_USER_AGENT` | `weather-layers/<ver> (+https://github.com/egeiran/weather)` | **set to the operator's app name + contact** (MET terms) |
-| `WEATHER_LAYERS_AREA` | `dev` | `coast` in production, or `w,s,e,n` |
+| `WEATHER_LAYERS_AREA` | `dev` | `norway` in production (polygon, decision 0010); also `coast`, `w,s,e,n` or a `.geojson` Polygon |
 | `WEATHER_LAYERS_SOURCES` | `meps,wam,norkyst,ecmwf` | |
 | `WEATHER_LAYERS_RETENTION` | `2` | runs kept per source; raise to keep history |
 | `WEATHER_LAYERS_CONCURRENCY` | `2` | parallel HTTP requests |
@@ -71,7 +71,13 @@ run logs `pipeline.locked` and exits 0).
 - Publishing order guarantees readers never see half-written runs: run directories are complete
   before the manifest that references them is replaced (atomic rename locally).
 
-## Sizing (full coast, measured; see docs/performance.md)
+## Sizing
+
+Norway polygon (`norway`, measured 2026-11-27): 942 MB downloaded per full set of runs,
+3 min wall time, 156 MB public output (9,004 files), 371 MB state, peak RSS 1.4 GB, **≈ 1.8 GB/day**.
+The table below is the larger coast rectangle (`coast`) for comparison; see docs/performance.md.
+
+### Coast rectangle
 
 | | per run | steady state (retention 2) |
 |---|---|---|

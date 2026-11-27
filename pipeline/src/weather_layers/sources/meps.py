@@ -25,13 +25,20 @@ from ..log import log
 from ..mercator import BBox
 from ..vectors import grid_north_angle, rotate_grid_to_earth
 from .base import Fields, Run, Source, Subset, run_id_of
-from .projected import cf_crs, epoch_seconds_to_dt, index_window, regular_axis
+from .projected import (
+    band_stats,
+    cf_crs,
+    epoch_seconds_to_dt,
+    index_window,
+    plan_bands,
+    regular_axis,
+    steps_per_request,
+)
 
 CATALOG = "https://thredds.met.no/thredds/catalog/mepslatest/catalog.xml"
 DODS_BASE = "https://thredds.met.no/thredds/dodsC/mepslatest/"
 NAME_RE = re.compile(r"meps_det_2_5km_(\d{8})T(\d{2})Z\.ncml")
 EXPECTED_STEPS = 67
-MAX_REQUEST_BYTES = 24 * 1024 * 1024
 
 
 class Meps(Source):
@@ -135,18 +142,28 @@ class Meps(Source):
         height_dim = ds.variables["x_wind_10m"].shape
         if len(height_dim) != 4:
             raise ValueError(f"unexpected x_wind_10m rank: {height_dim}")
-        step_bytes = (j1 - j0) * (i1 - i0) * 4
-        chunk = max(1, min(len(times), MAX_REQUEST_BYTES // max(step_bytes, 1)))
-        notes = {"index_window": [j0, j1, i0, i1], "steps_per_request": chunk}
+        bands = plan_bands(grid, area)
+        chunk = min(len(times), steps_per_request(bands))
+        notes = {
+            "index_window": [j0, j1, i0, i1],
+            "steps_per_request": chunk,
+            **band_stats(grid, bands),
+        }
 
         def steps() -> Iterator[tuple[int, Fields]]:
             for t0 in range(0, len(times), chunk):
                 t1 = min(len(times), t0 + chunk) - 1
-                slab = f"[{t0}:{t1}][0][{j0}:{j1 - 1}][{i0}:{i1 - 1}]"
                 arrays: dict[str, np.ndarray] = {}
                 for var in ("x_wind_10m", "y_wind_10m", "wind_speed_of_gust"):
-                    raw = ds.fetch({var: slab})[var]
-                    arrays[var] = ds.unpack(var, raw)[:, 0]
+                    arr = np.full((t1 - t0 + 1, grid.ny, grid.nx), np.nan, dtype=np.float32)
+                    for b in bands:
+                        slab = (
+                            f"[{t0}:{t1}][0][{j0 + b.r0}:{j0 + b.r1 - 1}]"
+                            f"[{i0 + b.c0}:{i0 + b.c1 - 1}]"
+                        )
+                        raw = ds.fetch({var: slab})[var]
+                        arr[:, b.r0 : b.r1, b.c0 : b.c1] = ds.unpack(var, raw)[:, 0]
+                    arrays[var] = arr
                 for k in range(t1 - t0 + 1):
                     u, v = rotate_grid_to_earth(
                         arrays["x_wind_10m"][k], arrays["y_wind_10m"][k], alpha

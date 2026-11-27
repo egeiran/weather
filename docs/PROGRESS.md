@@ -46,9 +46,17 @@
 
 Regression tests were added for 2, 3, 4, 6, 9, 11 and 13.
 
+## Second round (owner feedback, 2026-11-27)
+
+- Look chosen: calm ramp, hatching, subtle Windy-like particles, arrows automatic/optional.
+- Particles no longer pile up after zoom (hidden while moving, reseeded when still).
+- Polygon areas + strip-wise fetching; `norway` polygon halves the download (decision 0010).
+- Coastline drawn above the weather field (light/dark aware).
+- Windy-style UI: layer rail, slim legend, settings popover, model/run in the timeline, draggable pin.
+
 ## Next steps
 
-- Whole coast locally: `make pipeline-coast` then `make dev-coast` (port 5174, own data dirs).
+- Norway locally: `make pipeline-norway` then `make dev-norway` (port 5175, own data dirs).
 
 - Look chosen by the owner: calm ramp, hatching, subtle Windy-like particles by default, arrows
   as automatic fallback ('auto') or on demand (decisions 0008, 0009).

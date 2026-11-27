@@ -87,3 +87,68 @@ def test_geographic_periodic_grid():
     fi, fj = g.fractional_index(np.array([-10.0, 8.0, 359.75]), np.array([63.75, 63.75, 0.0]))
     np.testing.assert_allclose(fi, [1400.0, 32.0, 1439.0])
     np.testing.assert_allclose(fj, [105.0, 105.0, 360.0])
+
+
+def test_points_in_polygon_and_area_contains():
+    ring = ((0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (5.0, 5.0), (0.0, 10.0))  # concave "M"
+    a = m.BBox(0, 0, 10, 10, polygon=ring)
+    lon = np.array([2.0, 5.0, 5.0, 8.0, 11.0])
+    lat = np.array([2.0, 2.0, 8.0, 8.0, 2.0])
+    assert a.contains(lon, lat).tolist() == [True, True, False, True, False]
+    assert m.BBox(0, 0, 10, 10).contains(lon, lat).tolist() == [True, True, True, True, False]
+
+
+def test_norway_polygon_keeps_norway_and_drops_neighbours():
+    from weather_layers import areas
+
+    no = areas.get("norway")
+    inside = {
+        "Oslo": (10.75, 59.91),
+        "Bergen": (5.32, 60.39),
+        "Frøya": (8.6, 63.7),
+        "Bodø": (14.4, 67.28),
+        "Kirkenes": (30.05, 69.73),
+        "Karasjok": (25.5, 69.47),
+        "Røros": (11.39, 62.57),
+    }
+    outside = {
+        "Stockholm": (18.07, 59.33),
+        "Kiruna": (20.22, 67.86),
+        "Luleå": (22.15, 65.58),
+        "Göteborg": (11.97, 57.71),
+        "Skagen": (10.58, 57.72),
+        "Murmansk": (33.08, 68.97),
+    }
+    for name, (x, y) in inside.items():
+        assert no.contains(np.array(x), np.array(y)), name
+    for name, (x, y) in outside.items():
+        assert not no.contains(np.array(x), np.array(y)), name
+
+
+def test_bands_cover_polygon_cells_and_skip_the_rest():
+    from weather_layers.sources.projected import plan_bands
+
+    g = _lcc_grid(nx=40, ny=30)
+    lon2d, lat2d = g.lonlat()
+    # a diagonal polygon through the grid (like the coast through MEPS)
+    ring = (
+        (lon2d[0, 0], lat2d[0, 0]),
+        (lon2d[0, 8], lat2d[0, 8]),
+        (lon2d[29, 39], lat2d[29, 39]),
+        (lon2d[29, 31], lat2d[29, 31]),
+    )
+    area = m.BBox(
+        float(lon2d.min()),
+        float(lat2d.min()),
+        float(lon2d.max()),
+        float(lat2d.max()),
+        polygon=tuple((float(x), float(y)) for x, y in ring),
+    )
+    bands = plan_bands(g, area, band_rows=5, margin=1)
+    covered = np.zeros((g.ny, g.nx), bool)
+    for b in bands:
+        covered[b.r0 : b.r1, b.c0 : b.c1] = True
+    inside = area.contains(lon2d, lat2d)
+    assert covered[inside].all()  # every cell inside is fetched
+    assert covered.sum() < 0.7 * covered.size  # and most of the rest is not
+    assert plan_bands(g, m.BBox(0, 50, 30, 70)) == [type(bands[0])(0, g.ny, 0, g.nx)]

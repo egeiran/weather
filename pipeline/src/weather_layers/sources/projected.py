@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 from datetime import UTC, datetime
 
 import numpy as np
@@ -84,3 +85,71 @@ def footprint_bbox(grid: RegularGrid) -> BBox:
     tr = Transformer.from_crs(grid.crs, CRS.from_epsg(4326), always_xy=True)
     lon, lat = tr.transform(X, Y)
     return BBox(float(np.min(lon)), float(np.min(lat)), float(np.max(lon)), float(np.max(lat)))
+
+
+# --- strip-wise fetching for areas of any shape -------------------------------------------
+
+MAX_REQUEST_BYTES = 24 * 1024 * 1024
+
+
+@dataclass(frozen=True)
+class Band:
+    """Rows [r0, r1) x columns [c0, c1) of a sub-grid, fetched as one OPeNDAP hyperslab."""
+
+    r0: int
+    r1: int
+    c0: int
+    c1: int
+
+    @property
+    def cells(self) -> int:
+        return (self.r1 - self.r0) * (self.c1 - self.c0)
+
+
+def plan_bands(
+    grid: RegularGrid,
+    area: BBox,
+    band_rows: int | None = None,
+    n_bands: int = 4,
+    margin: int = 3,
+) -> list[Band]:
+    """Row strips of `grid` that cover the area. Without a polygon: one band (the window).
+
+    With a polygon, each strip only spans the columns whose cells fall inside the polygon
+    (dilated by `margin` cells for interpolation), so a shape running diagonally through a grid
+    (the Norwegian coast through MEPS, WW3 and NorKyst) skips most empty cells.
+
+    Every strip is a separate request, and servers whose chunks are whole fields (MEPS, WW3)
+    read every chunk once per strip, so few tall strips (`n_bands`, default 4) are the polite
+    trade-off; grids chunked in row blocks (NorKyst: 24 rows) can use more (`band_rows`).
+    """
+    if area.polygon is None:
+        return [Band(0, grid.ny, 0, grid.nx)]
+    if band_rows is None:
+        band_rows = math.ceil(grid.ny / max(1, n_bands))
+    from scipy.ndimage import binary_dilation
+
+    lon, lat = grid.lonlat()
+    mask = binary_dilation(area.contains(lon, lat), iterations=margin)
+    bands = []
+    for r0 in range(0, grid.ny, band_rows):
+        r1 = min(grid.ny, r0 + band_rows)
+        cols = np.flatnonzero(mask[r0:r1].any(axis=0))
+        if cols.size:
+            bands.append(Band(r0, r1, int(cols[0]), int(cols[-1]) + 1))
+    return bands
+
+
+def steps_per_request(bands: list[Band], bytes_per_value: int = 4) -> int:
+    largest = max((b.cells for b in bands), default=1)
+    return max(1, MAX_REQUEST_BYTES // max(largest * bytes_per_value, 1))
+
+
+def band_stats(grid: RegularGrid, bands: list[Band]) -> dict:
+    cells = sum(b.cells for b in bands)
+    return {
+        "bands": len(bands),
+        "fetched_cells": cells,
+        "window_cells": grid.nx * grid.ny,
+        "fetched_fraction": round(cells / max(grid.nx * grid.ny, 1), 3),
+    }

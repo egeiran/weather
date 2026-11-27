@@ -81,5 +81,20 @@
   "thresholdStyle.tint": "Fargetone",
   "thresholdStyle.contour": "Kun kontur",
   "segment.short": "{label} · {hours} t",
-  "compass.points": "N,NNØ,NØ,ØNØ,Ø,ØSØ,SØ,SSØ,S,SSV,SV,VSV,V,VNV,NV,NNV"
+  "compass.points": "N,NNØ,NØ,ØNØ,Ø,ØSØ,SØ,SSØ,S,SSV,SV,VSV,V,VNV,NV,NNV",
+  "settings.title": "Innstillinger",
+  "settings.open": "Åpne innstillinger",
+  "settings.close": "Lukk innstillinger",
+  "settings.motion": "Bevegelse",
+  "settings.appearance": "Utseende",
+  "settings.map": "Kart",
+  "settings.language": "Språk",
+  "pin.open": "Vis detaljer for punktet",
+  "pin.close": "Fjern punkt",
+  "pin.drag": "Dra for å flytte punktet",
+  "legend.overThreshold": "over terskel",
+  "time.dataUntil": "data til {time}",
+  "layers.rail": "Velg kartlag",
+  "lang.nb": "Norsk",
+  "lang.en": "English"
 }

@@ -37,7 +37,7 @@ async function open(page: Page, query: string) {
     if (m.type() === 'error') errors.push(m.text());
   });
   await page.goto(`/?${query}`, { waitUntil: 'networkidle' });
-  await expect(page.locator('.wl-status')).toBeVisible();
+  await expect(page.locator('.wl-timeline')).toBeVisible();
   await page.waitForTimeout(2500); // tiles decode + a few particle frames
   return errors;
 }
@@ -50,7 +50,7 @@ for (const layer of LAYERS) {
           page,
           `layer=${layer}&theme=${theme}&particles=${particles}&thresholds=1&time=${regionalTime(layer)}&${VIEW}`,
         );
-        await expect(page.locator('.wl-status .wl-model')).toBeVisible();
+        await expect(page.locator('.wl-time-meta .wl-model')).toBeVisible();
         await page.screenshot({
           path: `${OUT}/${layer}-${theme}-${particles ? 'particles' : 'static'}.jpg`,
           type: 'jpeg',
@@ -61,6 +61,25 @@ for (const layer of LAYERS) {
     }
   }
 }
+
+test('draggable pin shows the active value', async ({ page }) => {
+  const errors = await open(
+    page,
+    `layer=wind&particles=0&time=${regionalTime('wind')}&${VIEW}&panel=63.8,8.3&details=0`,
+  );
+  await expect(page.locator('.wl-pin-value strong')).toContainText('m/s');
+  await page.screenshot({ path: `${OUT}/pin-light.jpg`, type: 'jpeg', quality: 78 });
+  expect(errors).toEqual([]);
+});
+
+test('settings popover, dark', async ({ page }) => {
+  await open(
+    page,
+    `layer=current&theme=dark&particles=1&time=${regionalTime('current')}&${VIEW}&settings=1`,
+  );
+  await expect(page.locator('.wl-popover')).toBeVisible();
+  await page.screenshot({ path: `${OUT}/settings-dark.jpg`, type: 'jpeg', quality: 78 });
+});
 
 test('point panel with chart and first exceedance', async ({ page }) => {
   const errors = await open(
@@ -77,7 +96,7 @@ test('ECMWF segment (day 5) zoomed out, dark', async ({ page }) => {
   const seg = manifest.layers.wind!.segments.find((s) => s.source === 'ecmwf')!;
   const t = new Date(Date.parse(seg.start) + 24 * HOUR).toISOString();
   await open(page, `layer=wind&theme=dark&particles=0&time=${t}&view=63.7,8.7,6`);
-  await expect(page.locator('.wl-status .wl-model')).toContainText('ECMWF');
+  await expect(page.locator('.wl-time-meta .wl-model')).toContainText('ECMWF');
   await page.screenshot({ path: `${OUT}/wind-ecmwf-day5-dark.jpg`, type: 'jpeg', quality: 78 });
 });
 
@@ -85,7 +104,7 @@ test('time beyond a layer horizon shows a clear message', async ({ page }) => {
   const end = Date.parse(manifest.layers.current!.end);
   const t = new Date(end + 30 * HOUR).toISOString();
   await open(page, `layer=current&particles=0&time=${t}&${VIEW}`);
-  await expect(page.locator('.wl-status .wl-warning')).toContainText('Ingen data');
+  await expect(page.locator('.wl-status-chip.wl-warning')).toContainText('Ingen data');
   await page.screenshot({ path: `${OUT}/beyond-horizon-current.jpg`, type: 'jpeg', quality: 78 });
 });
 

@@ -23,14 +23,21 @@ from ..http import HttpClient, HttpError
 from ..log import log
 from ..mercator import BBox
 from .base import Fields, Run, Source, Subset, run_id_of
-from .projected import cf_crs, epoch_seconds_to_dt, index_window, regular_axis
+from .projected import (
+    band_stats,
+    cf_crs,
+    epoch_seconds_to_dt,
+    index_window,
+    plan_bands,
+    regular_axis,
+    steps_per_request,
+)
 
 CATALOG = "https://thredds.met.no/thredds/catalog/ww3_4km_latest_files/catalog.xml"
 DODS_BASE = "https://thredds.met.no/thredds/dodsC/ww3_4km_latest_files/"
 NAME_RE = re.compile(r"\bww3_(\d{8})T(\d{2})Z\.nc\b")
 N_TIMES = 73
 LEAD0 = 6
-MAX_REQUEST_BYTES = 24 * 1024 * 1024
 
 VARS = {
     "hs": "wave_height",
@@ -111,22 +118,29 @@ class Wam(Source):
         j0, j1, i0, i1 = index_window(full, area)
         grid = full.subset(j0, j1, i0, i1)
         times = epoch_seconds_to_dt(axes["time"])[LEAD0:]
-        step_bytes = grid.nx * grid.ny * 4
-        chunk = max(1, min(len(times), MAX_REQUEST_BYTES // step_bytes))
+        bands = plan_bands(grid, area)
+        chunk = min(len(times), steps_per_request(bands))
         notes = {
             "index_window": [j0, j1, i0, i1],
             "steps_per_request": chunk,
             "model": "WW3 4 km; swell = partition 1, wind sea = partition 0",
+            **band_stats(grid, bands),
         }
 
         def steps() -> Iterator[tuple[int, Fields]]:
             for a in range(0, len(times), chunk):
-                b = min(len(times), a + chunk) - 1
-                sl = f"[{LEAD0 + a}:{LEAD0 + b}][{j0}:{j1 - 1}][{i0}:{i1 - 1}]"
+                b_ = min(len(times), a + chunk) - 1
                 got = {}
                 for var, field in VARS.items():
-                    got[field] = ds.unpack(var, ds.fetch({var: sl})[var])
-                for k in range(b - a + 1):
+                    arr = np.full((b_ - a + 1, grid.ny, grid.nx), np.nan, dtype=np.float32)
+                    for b in bands:
+                        sl = (
+                            f"[{LEAD0 + a}:{LEAD0 + b_}][{j0 + b.r0}:{j0 + b.r1 - 1}]"
+                            f"[{i0 + b.c0}:{i0 + b.c1 - 1}]"
+                        )
+                        arr[:, b.r0 : b.r1, b.c0 : b.c1] = ds.unpack(var, ds.fetch({var: sl})[var])
+                    got[field] = arr
+                for k in range(b_ - a + 1):
                     yield a + k, {f: arr[k] for f, arr in got.items()}
 
         return Subset(grid, times, steps(), notes)

@@ -33,7 +33,23 @@ including the background prefetch of the following step; average of three steps.
 | waves z8.3 | 44 KB in 3 req, 1.5 s | 2 KB in 1.0 req | 7 KB in 1 req | 60 |
 | current z8.3 | 121 KB in 5 req, 1.5 s | 40 KB in 2.0 req | 7 KB in 1 req | 60 |
 
-## Full-coast pipeline run
+## Norway polygon run (production area)
+
+`make pipeline-norway` (empty cache, balanced defaults, polygon fetched in strips — decision 0010):
+
+| source (run) | downloaded | wall time | written | files | fetched share of the window |
+|---|---:|---:|---:|---:|---:|
+| MEPS 2.5 km (06Z) | 133 MB | 38 s | 22 MB | 1,073 | 38 % (4 strips) |
+| WW3 4 km (06Z) | 93 MB | 16 s | 8 MB | 1,073 | 29 % (4 strips) |
+| NorKyst v3 (00Z, 1.6 km) | 545 MB | 63 s | 80 MB | 4,236 | 53 % (48-row strips) |
+| ECMWF 0.25° (00Z) | 170 MB | 52 s | 3 MB | 589 | whole fields |
+| merged point series | – | 6 s | 42 MB | 4,033 | |
+| **total** | **942 MB** | **3 min** | **156 MB public + 371 MB state** | **9,004** | |
+
+Peak memory 1.4 GB. Per day with the balanced defaults ≈ 1.8 GB (MEPS 0.53, WW3 0.37,
+NorKyst 0.55, ECMWF 0.34).
+
+## Full-coast pipeline run (rectangle)
 
 `weather-layers run --area coast` with an empty cache, balanced defaults (decision 0007), on an
 Apple M4 laptop over home broadband:

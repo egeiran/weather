@@ -61,6 +61,12 @@ export interface WeatherLayersOptions {
   tileZoomOffset?: number;
   /** Custom layer id (default "weather-layers"). */
   id?: string;
+  /**
+   * Draw the coastline above the weather field so land and sea stay readable (like Windy).
+   * `true` (default) finds the basemap's vector `water` layer (OpenMapTiles schema, e.g.
+   * OpenFreeMap); pass `{ source, sourceLayer }` for other basemaps, or `false` to turn off.
+   */
+  coastline?: boolean | { source: string; sourceLayer: string };
 }
 
 export type WeatherStatus = 'loading' | 'ready' | 'no-data' | 'error' | 'hidden';
@@ -174,6 +180,7 @@ export class WeatherLayers {
       manifestRefreshMs: options.manifestRefreshMs ?? 5 * 60_000,
       tileZoomOffset: options.tileZoomOffset ?? 0,
       id: options.id ?? 'weather-layers',
+      coastline: options.coastline ?? true,
     };
     this.fetchFn = options.fetch ?? ((input, init) => globalThis.fetch(input, init));
     this.time = options.time ?? new Date();
@@ -205,9 +212,11 @@ export class WeatherLayers {
       },
     );
     const attach = () => {
-      if (!this.map || !this.renderer || this.map.getLayer(this.opts.id)) return;
+      if (!this.map || !this.renderer) return;
       try {
-        this.map.addLayer(this.renderer, this.opts.beforeId ?? this.firstSymbolLayer());
+        const before = this.opts.beforeId ?? this.firstSymbolLayer();
+        if (!this.map.getLayer(this.opts.id)) this.map.addLayer(this.renderer, before);
+        this.addCoastline(before);
       } catch {
         // Style not ready yet ("Style is not done loading"): the next styledata event retries.
       }
@@ -242,9 +251,73 @@ export class WeatherLayers {
     this.detachers.forEach((d) => d());
     this.detachers = [];
     this.abort.abort();
+    if (this.map?.getLayer(this.coastlineId)) this.map.removeLayer(this.coastlineId);
     if (this.map?.getLayer(this.opts.id)) this.map.removeLayer(this.opts.id);
     this.map = null;
     this.renderer = null;
+  }
+
+  private get coastlineId(): string {
+    return `${this.opts.id}-coastline`;
+  }
+
+  /** Where the coastline comes from: an explicit source or the basemap's `water` fill layer. */
+  private coastlineSource(): { source: string; sourceLayer: string } | null {
+    const c = this.opts.coastline;
+    if (c === false) return null;
+    if (typeof c === 'object') return c;
+    const layers = this.map?.getStyle()?.layers ?? [];
+    for (const l of layers) {
+      const sl = (l as { 'source-layer'?: string })['source-layer'];
+      const src = (l as { source?: string }).source;
+      if (l.type === 'fill' && sl === 'water' && typeof src === 'string') {
+        return { source: src, sourceLayer: sl };
+      }
+    }
+    return null;
+  }
+
+  /** Coastline above the weather field and below labels; colour follows the theme. */
+  private addCoastline(before: string | undefined) {
+    const map = this.map;
+    if (!map || map.getLayer(this.coastlineId)) return;
+    const src = this.coastlineSource();
+    if (!src || !map.getSource(src.source)) return;
+    map.addLayer(
+      {
+        id: this.coastlineId,
+        type: 'line',
+        source: src.source,
+        'source-layer': src.sourceLayer,
+        // Sea only (fjords included); lake outlines would clutter mid zooms.
+        filter: ['==', ['get', 'class'], 'ocean'],
+        layout: { 'line-join': 'round', visibility: this.coastlineVisible() ? 'visible' : 'none' },
+        paint: {
+          'line-color': this.coastlineColor(),
+          'line-width': ['interpolate', ['linear'], ['zoom'], 3, 0.6, 7, 1.0, 11, 1.6],
+        },
+      },
+      before,
+    );
+  }
+
+  private coastlineColor(): string {
+    return this.opts.theme === 'dark' ? 'rgba(236, 242, 248, 0.62)' : 'rgba(22, 34, 46, 0.6)';
+  }
+
+  private coastlineVisible(): boolean {
+    return this.opts.visible && !!this.manifest;
+  }
+
+  private syncCoastline() {
+    const map = this.map;
+    if (!map?.getLayer(this.coastlineId)) return;
+    map.setPaintProperty(this.coastlineId, 'line-color', this.coastlineColor());
+    map.setLayoutProperty(
+      this.coastlineId,
+      'visibility',
+      this.coastlineVisible() ? 'visible' : 'none',
+    );
   }
 
   /** Remove from the map and drop all listeners (final). */
@@ -500,6 +573,7 @@ export class WeatherLayers {
   }
 
   private changed() {
+    this.syncCoastline();
     this.map?.triggerRepaint();
     this.queueEmit();
   }

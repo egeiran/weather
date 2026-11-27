@@ -107,6 +107,13 @@ export function WeatherOverlayForFleet({ time, layer, visible }: { time: Date; l
 }
 ```
 
+- **Ready-made UI** (`weather-layers/react`): `LayerRail`, `Legend`, `SettingsMenu` (gear popover,
+  takes extra sections as children), `TimeSlider` (shows model/run/valid time), `StatusBar` (only
+  warnings), `PointPin` (draggable react-map-gl Marker with the active value) and `PointPanel`.
+  Theme with `<div className="wl-root" data-theme="dark">`. Hosts may use their own UI instead.
+- **Coastline:** a thin coastline is drawn above the weather field from the basemap's vector
+  `water` layer (OpenMapTiles schema). Pass `coastline={{ source, sourceLayer }}` for another
+  basemap or `coastline={false}` to turn it off.
 - **Layer order:** the weather layer is inserted below the first symbol layer of the basemap
   (labels stay on top). Add the host's vessel/site layers after it, or pass `beforeId`.
 - **Style switches:** the layer re-attaches itself on `style.load` (light/dark basemap swaps).
