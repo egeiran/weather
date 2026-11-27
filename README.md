@@ -91,4 +91,9 @@ identifying name with a contact, as MET Norway's terms require.
 Data: **MET Norway** (NLOD 2.0 / CC BY 4.0, "Based on data from MET Norway") and
 **ECMWF** (CC BY 4.0; data modified: regridded and tiled; ECMWF accepts no liability for errors or
 omissions). Basemap: [OpenFreeMap](https://openfreemap.org) © OpenMapTiles © OpenStreetMap
-contributors. Dependencies are MIT/BSD/ISC/Apache-2.0.
+contributors.
+
+Dependencies: every direct dependency is MIT, BSD, ISC or Apache-2.0. Transitive exceptions
+(not added by us, used unmodified): `certifi` (MPL-2.0, CA bundle used by httpx and pyproj),
+`typing_extensions` (PSF-2.0), and dev-only build tooling pulled in by Vite (`lightningcss`
+MPL-2.0, `caniuse-lite` CC BY 4.0 data). Nothing copyleft ships in the browser bundle.
