@@ -64,6 +64,7 @@ class HttpClient:
         self._max_retries = max_retries
         self._cache_dir = cache_dir
         self._sleep = sleep
+        self._namespace = ""
         if cache_dir is not None:
             cache_dir.mkdir(parents=True, exist_ok=True)
 
@@ -81,6 +82,8 @@ class HttpClient:
         if self._cache_dir is None:
             return None
         key = url + "\n" + json.dumps(headers or {}, sort_keys=True)
+        if self._namespace:
+            key = self._namespace + "\n" + key
         digest = hashlib.sha256(key.encode()).hexdigest()
         base = self._cache_dir / digest[:2] / digest
         return base.with_suffix(".bin"), base.with_suffix(".json")
@@ -104,6 +107,14 @@ class HttpClient:
         paths[1].write_text(
             json.dumps({"url": url, "status": resp.status, "headers": resp.headers})
         )
+
+    def namespaced(self, namespace: str) -> HttpClient:
+        """A view of this client whose cache keys are prefixed (e.g. with a run id), for
+        datasets whose URLs stay the same while their content changes (aggregations)."""
+        view = object.__new__(HttpClient)
+        view.__dict__.update(self.__dict__)
+        view._namespace = namespace
+        return view
 
     # -- requests --------------------------------------------------------------------------
     def get(
@@ -154,7 +165,7 @@ class HttpClient:
             if r.status_code not in allow_status:
                 raise HttpError(url, r.status_code, body[:200].decode("utf-8", "replace"))
             resp = Response(url, r.status_code, body, dict(r.headers))
-            if cache and r.status_code == 200:
+            if cache and r.status_code in (200, 206):
                 self._cache_put(url, headers, resp)
             return resp
 

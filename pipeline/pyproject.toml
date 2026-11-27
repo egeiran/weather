@@ -11,11 +11,8 @@ dependencies = [
     "pyproj>=3.7",
     "pillow>=11.0",
     "httpx>=0.28",
-]
-
-[project.optional-dependencies]
-ecmwf = [
     "eccodes>=2.39",
+    "eccodeslib>=2.50; sys_platform != 'win32'",
 ]
 
 [project.scripts]
